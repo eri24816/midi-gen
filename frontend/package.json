@@ -13,15 +13,18 @@
     "format": "prettier --write src/"
   },
   "dependencies": {
+    "@tonejs/piano": "^0.2.1",
     "axios": "^1.7.7",
+    "events": "^3.3.0",
     "pinia": "^2.1.7",
     "vue": "^3.4.29",
     "vue-router": "^4.3.3"
   },
   "devDependencies": {
     "@rushstack/eslint-patch": "^1.8.0",
+    "@tonejs/midi": "^2.0.28",
     "@tsconfig/node20": "^20.1.4",
-    "@types/node": "^20.14.5",
+    "@types/node": "^20.16.7",
     "@vitejs/plugin-vue": "^5.0.5",
     "@vue/eslint-config-prettier": "^9.0.0",
     "@vue/eslint-config-typescript": "^13.0.0",
