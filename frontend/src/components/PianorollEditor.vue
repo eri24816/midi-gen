@@ -1,6 +1,6 @@
 <template>
   <div class="pianoroll-editor">
-    <canvas class="pianoroll-canvas" ref="pianorollCanvas" @mousedown="handleMouseDown" @mousemove="handleMouseMove" @mouseup="handleMouseUp" @wheel="handleWheel" @dblclick="handleDoubleClick"></canvas>
+    <canvas class="pianoroll-canvas" ref="pianorollCanvas" @mousedown.prevent="handleMouseDown" @wheel="handleWheel" @contextmenu.prevent></canvas>
     <div class="controls">
       <button @click="playMidi">Play</button>
       <button @click="stopMidi">Stop</button>
@@ -201,6 +201,13 @@ export default {
         ctx.moveTo(i, 0);
         ctx.lineTo(i, height);
         ctx.stroke();
+        if(i%(barDuration/4) == 0) {
+          // text
+          ctx.fillStyle = '#FFFFFF';
+          ctx.font = '12px Arial';
+          ctx.textAlign = 'center';
+          ctx.fillText(((i/scaleX-1)/4)+1+'', i+10, height-12);
+        }
       }
 
       // Draw MIDI notes
@@ -239,6 +246,19 @@ export default {
         ctx.fillText(noteName, beatToCanvas(draggingObject.onset), pitchToCanvas(draggingObject.pitch)-30);
       }
     };
+
+    const createNote = (onset: number, pitch: number, velocity: number = 0.6, snap=0.125): Note => {
+      onset = Math.round(onset/snap)*snap;
+      const notesInBar = pianoroll!.getNotesOnsetBetween(onset, onset - onset%4 + 4);
+      let duration = - onset%4 + 4;
+      for (const note of notesInBar) {
+        if (note.pitch === pitch) {
+          duration = Math.min(duration, note.onset - onset);
+        }
+      }
+      duration = Math.max(Math.round(duration/snap)*snap, snap);
+      return new Note(onset, duration, pitch, velocity);
+    }
 
     const getNoteNameFromPitch = (pitch: number): string => {
       const noteNames = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
@@ -302,39 +322,66 @@ export default {
       // test if mouse on cursor
       const cursorX = getCursorCanvasPosition();
       const pointerX = screenToCanvas(event.clientX);
-      if (Math.abs(cursorX - pointerX) < 10) {
-        draggingObject = 'cursor';
-      } else if (pianoroll!.getNoteAt(screenToBeat(event.clientX), screenToPitch(event.clientY))) {
-        draggingObject = pianoroll!.getNoteAt(screenToBeat(event.clientX), screenToPitch(event.clientY));
-      }
-      else {
-        const newNote = new Note(
-          screenToBeat(event.clientX),
-          1,
-          screenToPitch(event.clientY),
-          0.6
-      )
-        pianoroll!.addNote(newNote);
-        draggingObject = newNote;
+      if(event.buttons === 1) {
+        if (Math.abs(cursorX - pointerX) < 10) {
+          draggingObject = 'cursor';
+        } else if (pianoroll!.getNoteAt(screenToBeat(event.clientX), screenToPitch(event.clientY))) {
+          draggingObject = pianoroll!.getNoteAt(screenToBeat(event.clientX), screenToPitch(event.clientY));
+          piano.playNote(draggingObject!);
+        }
+        else {
+          const newNote = createNote(screenToBeat(event.clientX), screenToPitch(event.clientY));
+          pianoroll!.addNote(newNote);
+          draggingObject = newNote;
+          drawPianoroll();
+          piano.playNote(newNote);
+        }
+      } else if (event.buttons === 2) {
+        const noteUnderPointer = pianoroll!.getNoteAt(screenToBeat(event.clientX), screenToPitch(event.clientY));
+        if (noteUnderPointer) {
+          pianoroll!.removeNote(noteUnderPointer);
+        }
         drawPianoroll();
       }
+
+      document.addEventListener('mousemove', handleMouseMove);
+      document.addEventListener('mouseup', handleMouseUp);
     };
 
-    const handleMouseMove = (event: MouseEvent): void => {
+    const handleMouseMove = (event: MouseEvent): void => { 
       if (draggingObject === 'cursor') {
         cursorPosition = screenToBeat(event.clientX);
+        piano.stop();
       }
       if (draggingObject instanceof Note) {
+
         pianoroll!.removeNote(draggingObject);
-        draggingObject.onset = screenToBeat(event.clientX);
-        draggingObject.pitch = screenToPitch(event.clientY);
-        pianoroll!.addNote(draggingObject);
+        const newNote = createNote(screenToBeat(event.clientX), screenToPitch(event.clientY),draggingObject.velocity);
+        if (newNote.pitch !== draggingObject.pitch) {
+          piano.playNote(newNote);
+        }
+
+        pianoroll!.addNote(newNote);
+        piano.stopNote(draggingObject);
+        draggingObject = newNote;
+      }
+      if(event.buttons==2){
+        const noteUnderPointer = pianoroll!.getNoteAt(screenToBeat(event.clientX), screenToPitch(event.clientY));
+        if (noteUnderPointer) {
+          pianoroll!.removeNote(noteUnderPointer);
+        }
+        drawPianoroll();
       }
       drawPianoroll();
     };
 
     const handleMouseUp = (): void => {
+      if (draggingObject instanceof Note) {
+        piano.stopNote(draggingObject);
+      }
       draggingObject = null;
+      document.removeEventListener('mousemove', handleMouseMove);
+      document.removeEventListener('mouseup', handleMouseUp);
     };
 
     const addNote = (event: MouseEvent): void => {
