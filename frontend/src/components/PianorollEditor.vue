@@ -11,30 +11,10 @@
 
 <script lang="ts">
 import { ref, onMounted, watch } from 'vue';
-import { Midi } from '@tonejs/midi';
+import { Midi, Track } from '@tonejs/midi';
 import { Piano } from '@tonejs/piano'
+import { Note, Pianoroll, getBps } from '@/utils';
 
-class Note {
-  onset: number;
-  duration: number;
-  pitch: number;
-  velocity: number;
-
-  constructor(onset: number, duration: number, pitch: number, velocity: number) {
-    this.onset = onset;
-    this.duration = duration;
-    this.pitch = pitch;
-    this.velocity = velocity;
-  }
-}
-
-function getBps(midi: Midi): number {
-  if (midi.header.tempos.length > 0) {
-    return midi.header.tempos[0].bpm/60;
-  } else {
-    return 120/60;
-  }
-}
 
 /**
  * This class extends the functionality of the Piano class from `@tonejs/piano`.
@@ -97,71 +77,15 @@ class AutoKeyupPiano {
   }
 }
 
-/**
- * A simpler subset of Midi data.
- * Only contains onsets of notes and their duration, pitch, and velocity.
- */
-class Pianoroll{
-  onsets: Note[];
-  constructor(midi: Midi){
-    const ticksPerSecond = midi.header.secondsToTicks(1);
-    const bps = getBps(midi);
-    this.onsets = midi.tracks[0].notes.map((note) => new Note(
-      note.ticks / ticksPerSecond * bps,
-      note.durationTicks / ticksPerSecond * bps,
-      note.midi,
-      note.velocity
-    ));
-  }
-
-  /**
-   * Get notes that overlap with a time interval.
-   * @param {number} start - The start beat.
-   * @param {number} end - The end beat.
-   * @returns {Note[]} An array of notes that are between the start and end beats.
-   */
-  getNotesBetween(start: number, end: number): Note[] {
-    return this.onsets.filter((note) => note.onset < end && note.onset + note.duration >= start);
-  }
-
-  getNoteAt(beat: number, pitch: number): Note | null {
-    const tmp =  this.onsets.find((note) => (note.onset < beat && (note.onset + note.duration > beat)) && note.pitch === pitch) || null;
-    if (tmp) {
-      return tmp;
-    } else {
-      return null;
-    }
-  }
-
-  /**
-   * Get notes that start between two beats.
-   * @param {number} start - The start beat.
-   * @param {number} end - The end beat.
-   * @returns {Note[]} An array of notes that start between the start and end beats.
-   */
-  getNotesOnsetBetween(start: number, end: number): Note[] {
-    return this.onsets.filter((note) => note.onset < end && note.onset >= start);
-  }
-
-  addNote(note: Note) {
-    this.onsets.push(note);
-  }
-
-  removeNote(note: Note) {
-    this.onsets = this.onsets.filter((n) => n !== note);
-  }
+interface DragBehavior {
+  mouseMove(event: MouseEvent): void;
+  mouseUp(event: MouseEvent): void;
 }
 
 export default {
   name: 'PianorollEditor',
-  props: {
-    midiFile: {
-      type: File,
-      required: true
-    }
-  },
   emits: ['save'],
-  setup(props: { midiFile: File}, { emit }) {
+  setup({},{ emit }) {
     const pianorollCanvas = ref<HTMLCanvasElement | null>(null);
     const piano = new AutoKeyupPiano(new Piano({
     velocities: 5,
@@ -173,18 +97,77 @@ export default {
     }
     }));
     let ctx: CanvasRenderingContext2D | null = null;
-    let midiData: Midi | null = null;
     let scaleX = 50 ;
     let shiftX = 1;
     let gap = 0.6;
-    let pianoroll: Pianoroll | null = null;
+    let pianoroll = ref<Pianoroll>(new Pianoroll());
     let cursorPosition = 0;
     let intervalId: ReturnType<typeof setInterval> | null = null;
-    let draggingObject: string | Note | null = null;
+    let dragBehavior: DragBehavior | null = null;
 
+    class MoveNoteDragBehavior implements DragBehavior {
+      private _note: Note;
+      public get note(): Note {
+        return this._note;
+      }
+      constructor(event: MouseEvent){
+        const noteUnderPointer = pianoroll.value.getNoteAt(screenToBeat(event.clientX), screenToPitch(event.clientY));
+        this._note = noteUnderPointer ? noteUnderPointer : createNote(screenToBeat(event.clientX), screenToPitch(event.clientY));
+        pianoroll.value.addNote(this._note);
+        piano.playNote(this._note);
+        render();
+      }
+      public mouseMove(event: MouseEvent): void {
+        
+        pianoroll.value.removeNote(this._note);
+        piano.stopNote(this._note);
+        const newNote = createNote(screenToBeat(event.clientX), screenToPitch(event.clientY),this._note.velocity);
+        pianoroll.value.addNote(newNote);
 
-    const drawPianoroll = (): void => {
-      if (!midiData || !ctx || !pianorollCanvas.value) return;
+        if (newNote.pitch !== this._note.pitch) {
+          piano.playNote(newNote);
+        }
+        this._note = newNote;
+        render();
+      }
+      public mouseUp(event: MouseEvent): void {
+        piano.stopNote(this._note);   
+      }
+    }
+
+    class RemoveNoteDragBehavior implements DragBehavior {
+      constructor(event: MouseEvent){
+        const noteUnderPointer = pianoroll.value.getNoteAt(screenToBeat(event.clientX), screenToPitch(event.clientY));
+        if (noteUnderPointer) {
+          pianoroll.value.removeNote(noteUnderPointer);
+          render();
+        }
+      }
+      public mouseMove(event: MouseEvent): void {
+        const noteUnderPointer = pianoroll.value.getNoteAt(screenToBeat(event.clientX), screenToPitch(event.clientY));
+        if (noteUnderPointer) {
+          pianoroll.value.removeNote(noteUnderPointer);
+          render();
+        }
+      }
+      public mouseUp(event: MouseEvent): void {
+        
+      }
+    }
+
+    class CursorDragBehavior implements DragBehavior {
+      public mouseMove(event: MouseEvent): void {
+        cursorPosition = screenToBeat(event.clientX);
+        render();
+      }
+      public mouseUp(event: MouseEvent): void {
+        
+      }
+    }
+    
+
+    const render = (): void => {
+      if (!pianoroll || !ctx || !pianorollCanvas.value) return;
       let height = pianorollCanvas.value.clientHeight;
       let width = pianorollCanvas.value.clientWidth; 
       pianorollCanvas.value.height = height;
@@ -212,7 +195,7 @@ export default {
 
       // Draw MIDI notes
       let noteCount = 0;
-      for (const note of pianoroll!.getNotesBetween(0, 100)) {
+      for (const note of pianoroll.value.getNotesBetween(0, 100)) {
         
         const hue = (note.pitch % 12) * 30; // 30 degrees per semitone
         const lightness = 40 + Math.abs(hue-180)*0.1;
@@ -236,20 +219,20 @@ export default {
       ctx.globalAlpha = 1;
 
       //display key of dragging note
-      if (draggingObject instanceof Note) {
+      if (dragBehavior instanceof MoveNoteDragBehavior) {
         ctx.fillStyle = '#FFFFFF';
         ctx.font = '12px Arial';
         ctx.textAlign = 'left';
 
-        const noteName = getNoteNameFromPitch(draggingObject.pitch);
+        const noteName = getNoteNameFromPitch(dragBehavior.note.pitch);
 
-        ctx.fillText(noteName, beatToCanvas(draggingObject.onset), pitchToCanvas(draggingObject.pitch)-30);
+        ctx.fillText(noteName, beatToCanvas(dragBehavior.note.onset), pitchToCanvas(dragBehavior.note.pitch)-30);
       }
     };
 
     const createNote = (onset: number, pitch: number, velocity: number = 0.6, snap=0.125): Note => {
       onset = Math.round(onset/snap)*snap;
-      const notesInBar = pianoroll!.getNotesOnsetBetween(onset, onset - onset%4 + 4);
+      const notesInBar = pianoroll.value.getNotesOnsetBetween(onset, onset - onset%4 + 4);
       let duration = - onset%4 + 4;
       for (const note of notesInBar) {
         if (note.pitch === pitch) {
@@ -307,13 +290,13 @@ export default {
       } else {
         shiftX -= 0.5*event.deltaY/scaleX;
       }
-      drawPianoroll();
+      render();
     };
 
     const handleDoubleClick = (event: MouseEvent): void => {
       cursorPosition = screenToBeat(event.clientX);
       piano.stop();
-      drawPianoroll();
+      render();
       event.preventDefault();
       event.stopPropagation();
     };
@@ -324,24 +307,13 @@ export default {
       const pointerX = screenToCanvas(event.clientX);
       if(event.buttons === 1) {
         if (Math.abs(cursorX - pointerX) < 10) {
-          draggingObject = 'cursor';
-        } else if (pianoroll!.getNoteAt(screenToBeat(event.clientX), screenToPitch(event.clientY))) {
-          draggingObject = pianoroll!.getNoteAt(screenToBeat(event.clientX), screenToPitch(event.clientY));
-          piano.playNote(draggingObject!);
-        }
+          dragBehavior = new CursorDragBehavior();
+        } 
         else {
-          const newNote = createNote(screenToBeat(event.clientX), screenToPitch(event.clientY));
-          pianoroll!.addNote(newNote);
-          draggingObject = newNote;
-          drawPianoroll();
-          piano.playNote(newNote);
+          dragBehavior = new MoveNoteDragBehavior(event);
         }
       } else if (event.buttons === 2) {
-        const noteUnderPointer = pianoroll!.getNoteAt(screenToBeat(event.clientX), screenToPitch(event.clientY));
-        if (noteUnderPointer) {
-          pianoroll!.removeNote(noteUnderPointer);
-        }
-        drawPianoroll();
+        dragBehavior = new RemoveNoteDragBehavior(event);
       }
 
       document.addEventListener('mousemove', handleMouseMove);
@@ -349,37 +321,11 @@ export default {
     };
 
     const handleMouseMove = (event: MouseEvent): void => { 
-      if (draggingObject === 'cursor') {
-        cursorPosition = screenToBeat(event.clientX);
-        piano.stop();
-      }
-      if (draggingObject instanceof Note) {
-
-        pianoroll!.removeNote(draggingObject);
-        const newNote = createNote(screenToBeat(event.clientX), screenToPitch(event.clientY),draggingObject.velocity);
-        if (newNote.pitch !== draggingObject.pitch) {
-          piano.playNote(newNote);
-        }
-
-        pianoroll!.addNote(newNote);
-        piano.stopNote(draggingObject);
-        draggingObject = newNote;
-      }
-      if(event.buttons==2){
-        const noteUnderPointer = pianoroll!.getNoteAt(screenToBeat(event.clientX), screenToPitch(event.clientY));
-        if (noteUnderPointer) {
-          pianoroll!.removeNote(noteUnderPointer);
-        }
-        drawPianoroll();
-      }
-      drawPianoroll();
+      dragBehavior?.mouseMove(event);
     };
 
-    const handleMouseUp = (): void => {
-      if (draggingObject instanceof Note) {
-        piano.stopNote(draggingObject);
-      }
-      draggingObject = null;
+    const handleMouseUp = (event: MouseEvent): void => {
+      dragBehavior?.mouseUp(event);
       document.removeEventListener('mousemove', handleMouseMove);
       document.removeEventListener('mouseup', handleMouseUp);
     };
@@ -388,7 +334,7 @@ export default {
       // Implementation of adding a note
       // Update midiData with the new note
       // ...
-      drawPianoroll();
+      render();
     };
 
     const playMidi = (): void => {
@@ -401,12 +347,12 @@ export default {
         const oldCursorPosition = cursorPosition;
         cursorPosition += 0.125; // granularity of 1/8 beat
         piano.update(cursorPosition);
-        const notesToPlay = pianoroll!.getNotesOnsetBetween(oldCursorPosition, cursorPosition);
+        const notesToPlay = pianoroll.value.getNotesOnsetBetween(oldCursorPosition, cursorPosition);
         notesToPlay.forEach((note) => {
           piano.playNote(note);
         });
-        drawPianoroll();
-      }, 1000 * beatPerFrame / getBps(midiData!));
+        render();
+      }, 1000 * beatPerFrame / pianoroll.value.bps);
     };
 
     const stopMidi = (): void => {
@@ -432,23 +378,14 @@ export default {
 
     const loadMidiFile = async (file: File): Promise<void> => {
       const arrayBuffer = await file.arrayBuffer();
-      midiData = new Midi(arrayBuffer);
-      pianoroll = new Pianoroll(midiData);
-      drawPianoroll();
+      pianoroll.value = new Pianoroll(arrayBuffer);
+      render();
     };
 
-    watch(() => props.midiFile, (newFile: File) => {
-      if (newFile) {
-        loadMidiFile(newFile);
-      }
-    });
 
     onMounted(() => {
       if (pianorollCanvas.value) {
         ctx = pianorollCanvas.value.getContext('2d');
-        if (props.midiFile) {
-          loadMidiFile(props.midiFile);
-        }
       }
     });
 
@@ -461,7 +398,10 @@ export default {
       handleDoubleClick,
       playMidi,
       stopMidi,
-      saveMidi
+      saveMidi,
+      pianoroll,
+      render,
+      loadMidiFile
     };
   }
 }

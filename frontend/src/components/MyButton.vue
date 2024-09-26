@@ -1,18 +1,15 @@
 <template>
-  <button @click="generate" :disabled="!midiFile">
-    Generate Next Bar
+  <button @click="clicked">
+    <slot></slot>
   </button>
 </template>
 
 <script setup lang="ts">
-defineProps<{
-  midiFile: File | null;
-}>();
 
-const emit = defineEmits(['generate']);
+const emit = defineEmits(['clicked']);
 
-const generate = () => {
-  emit('generate');
+const clicked = () => {
+  emit('clicked');
 };
 </script>
 
@@ -25,6 +22,15 @@ button {
   color: white;
   border: none;
   border-radius: 4px;
+}
+
+button:hover {
+  background-color: #3e8e41;
+}
+
+button:active {
+  background-color: #3e8e41;
+  scale: 0.95;
 }
 
 button:disabled {
