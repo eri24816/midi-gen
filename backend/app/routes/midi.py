@@ -5,17 +5,9 @@ from ..models import MidiGenerationRequest
 import base64
 from music_data_analysis.data import Pianoroll
 
-router = APIRouter()
+from ..inference import inference
 
-@router.get("/load-midi")
-async def load_midi():
-    try:
-        # TODO: Implement logic to load MIDI file
-        # For now, we'll just return a dummy MIDI file
-        dummy_midi = base64.b64encode(b"Dummy MIDI data").decode()
-        return {"midiData": dummy_midi}
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+router = APIRouter()
 
 @router.post("/generate")
 async def generate_midi(request: MidiGenerationRequest):
@@ -26,7 +18,24 @@ async def generate_midi(request: MidiGenerationRequest):
         
         # TODO: Implement MIDI processing and generation logic here
         
-        # pr.notes.append(Note(onset=1, pitch=60, velocity=100, offset=10))
+        # new_pr = Pianoroll([ # c c g g a a g f f e e d d c
+        #     Note(0, 60, 100, 100), # c
+        #     Note(4, 60, 100, 100), # c
+        #     Note(8, 67, 100, 100), # g
+        #     Note(12, 67, 100, 100), # g
+        #     Note(16, 69, 100, 100), # a
+        #     Note(20, 69, 100, 100), # a
+        #     Note(24, 67, 100, 100), # g
+        #     Note(28, 65, 100, 100), # f
+        #     Note(32, 65, 100, 100), # f
+        #     Note(36, 64, 100, 100), # e
+        #     Note(40, 64, 100, 100), # e
+        #     Note(44, 62, 100, 100), # d
+        #     Note(48, 62, 100, 100), # d
+        #     Note(52, 60, 100, 100), # c
+            
+        # ])
+        pr = inference(prompt=pr)
 
         # For now, we'll just return the same MIDI data
         buffer = BytesIO()

@@ -195,7 +195,9 @@ export default {
 
       // Draw MIDI notes
       let noteCount = 0;
-      for (const note of pianoroll.value.getNotesBetween(0, 100)) {
+      const timeLowerBound = Math.max(0, -shiftX);
+      const timeUpperBound =  width/scaleX-shiftX;
+      for (const note of pianoroll.value.getNotesBetween(timeLowerBound, timeUpperBound)) {
         
         const hue = (note.pitch % 12) * 30; // 30 degrees per semitone
         const lightness = 40 + Math.abs(hue-180)*0.1;
