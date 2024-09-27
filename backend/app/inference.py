@@ -15,7 +15,7 @@ assert CHECKPOINT_DIR is not None
 
 
 device = 'cuda'
-from_epoch = 80
+from_epoch = 60
 
 tokenizer = PianoRollTokenizer(n_pitch=88, n_velocity=32, token_seq_len=10240+1)
 

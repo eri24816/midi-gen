@@ -3,21 +3,23 @@
         <h2>Suggestions</h2>
         <div class="scroll-container">
             <div class="scroll-content">
-                <SuggestionCard v-for="[cardId, midiData] in midiDataList" :key="cardId" :midiData="midiData" :cardId="cardId" @remove="handleRemove" />
+                <SuggestionCard v-for="[cardId, midiData] in midiDataList" :key="cardId" :midiData="midiData" 
+                :cardId="cardId" @remove="handleRemove" @accept="handleAccept" :accepted="cardId == lastAccepted"/>
             </div>
         </div>
 
-        <MyButton @click="handleGenerate">Generate Bar</MyButton>
+        <MyButton @click="handleGenerate">Generate More</MyButton>
     </div>
 </template>
 
 <script lang="ts">
 import SuggestionCard from '@/components/SuggestionCard.vue';
 import axios from 'axios';
-import { base64Decode, base64Encode } from '@/utils';
+import { base64Decode, base64Encode, Pianoroll } from '@/utils';
 import { useStore } from '@/stores/counter';
 import { defineComponent } from 'vue';
 import MyButton from '@/components/MyButton.vue';
+
 export default defineComponent({
     name: 'SuggestionPanel',
     components: {
@@ -25,32 +27,37 @@ export default defineComponent({
         MyButton
     },
     setup() {
-        const storeInstance = useStore();
-        return {
-            storeInstance
-        }
+        const store = useStore();
+        return { store };
     },
     data() {
         return {
-            midiDataList: new Map<number, Uint8Array>()
+            midiDataList: new Map<number, Uint8Array>(),
+            positionToGenerate: -1,
+            lastAccepted: -1
         }
     },
     methods: {
         handleGenerate() {
-            axios.post('/api/generate', {
-                midi: base64Encode(this.storeInstance.mainPianoroll.toMidi().toArray()),
-                metadata: {
-                    title: 'Generated MIDI',
-                    artist: 'AdI',
-                    album: 'Generated' 
-                }
-            }).then((response) => {
-                //this.storeInstance.mainPianoroll = new Pianoroll(base64Decode(response.data.midi));
-                this.midiDataList.set(Math.random(), base64Decode(response.data.midi));
-            });
+            this.store.generateCallback();
         },
         handleRemove(cardId: number) {
             this.midiDataList.delete(cardId);
+        },
+        handleAccept(cardId: number) {
+            this.store.acceptSuggestionCallback(this.midiDataList.get(cardId)!);
+            this.lastAccepted = cardId;
+        },
+        reset() {
+            this.midiDataList.clear();
+            this.lastAccepted = -1;
+        },
+        addSuggestion(midiData: Uint8Array) {
+            const cardId = Math.random();
+            this.midiDataList.set(cardId, midiData);
+            if(this.midiDataList.size == 1){
+                this.handleAccept(cardId);
+            }
         }
     }
 });
@@ -61,7 +68,6 @@ export default defineComponent({
     display: flex;
     flex-direction: column;
     align-items: stretch;
-    gap: 10px;
     background-color: #151515;
     margin-bottom: 20px;
     border-radius: 8px;

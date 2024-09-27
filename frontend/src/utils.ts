@@ -1,5 +1,7 @@
 import { Midi } from '@tonejs/midi';
+import type { Piano } from '@tonejs/piano'
 import { Buffer } from 'buffer';
+import { now} from 'tone';
 
 export function base64Encode(array: Uint8Array): string {
     return Buffer.from(array).toString('base64');
@@ -47,6 +49,7 @@ export class Pianoroll{
   get duration(): number {
     return this._duration;
   }
+
   constructor(midiData: ArrayBuffer|Uint8Array|null = null){
     if (!midiData) {
       this.onsets = [];
@@ -121,10 +124,108 @@ export class Pianoroll{
 
   addNote(note: Note) {
     this.onsets.push(note);
+    this._duration = Math.max(this._duration, note.onset + note.duration);
   }
 
   removeNote(note: Note) {
     this.onsets = this.onsets.filter((n) => !n.equals(note));
     this._duration = Math.max(...this.onsets.map((note) => note.onset + note.duration));
+  }
+
+  overlapWith(other: Pianoroll, shift: number = 0): void {
+    console.log(other.onsets);
+    for (const note of other.onsets) {
+      this.addNote(new Note(note.onset + shift, note.duration, note.pitch, note.velocity));
+    }
+  }
+
+  slice(start: number, end: number): Pianoroll {
+    start -= 0.001;
+    end -= 0.001;
+    const sliced = new Pianoroll();
+    sliced.onsets = this.onsets.filter((note) => note.onset >= start && note.onset <= end);
+    sliced.recalculateDuration();
+    return sliced;
+  }
+
+  removeSlice(start: number, end: number): void {
+    start -= 0.001;
+    end -= 0.001;
+    this.onsets = this.onsets.filter((note) => note.onset <= start || note.onset >= end);
+    this.recalculateDuration();
+  }
+
+  recalculateDuration(): void {
+    this._duration = Math.max(...this.onsets.map((note) => note.onset + note.duration));
+  }
+}
+
+
+/**
+ * This class extends the functionality of the Piano class from `@tonejs/piano`.
+ * It automatically do the key-up events for played notes based on their duration.
+ */
+export class AutoKeyupPiano {
+  /** Map to store pending note offsets (pitch -> offset) */
+  private pendingOffsets: Map<number, number> = new Map();
+
+  /**
+   * Creates an instance of AutoKeyupPiano.
+   * @param {Piano} piano - The Piano instance to be wrapped.
+   */
+  constructor(public piano: Piano) {
+    piano.load().then(() => {
+      console.log("Piano loaded");
+    });
+    piano.toDestination();
+  }
+
+  /**
+   * Plays a note and schedules its key-up event.
+   * @param {Note} note - The note to be played.
+   */
+  playNote(onset: number, pitch: number, velocity: number, offset: number) {
+    if(this.pendingOffsets.has(pitch)) {
+      this.piano.keyUp({midi: pitch, time: offset});
+    }
+    this.piano.keyDown({midi: pitch, velocity: velocity, time: onset});
+    this.pendingOffsets.set(pitch, offset);
+  }
+
+  playNoteImmediate(pitch: number, velocity: number) {
+    this.piano.keyDown({midi: pitch, velocity: velocity});
+    this.pendingOffsets.set(pitch, now() + 5);
+  }
+
+  /**
+   * Stops a note immediately.
+   * @param {Note} note - The note to be stopped.
+   */
+  stopNote(note: Note) {
+    this.piano.keyUp({midi: note.pitch});
+    this.pendingOffsets.delete(note.pitch);
+  }
+
+  /**
+   * Updates the piano state, releasing keys that have reached their offset time.
+   * @param {number} time - The current time.
+   */
+  update(time: number) {
+    for (const [pitch, offset] of this.pendingOffsets.entries()) {
+      if (time > offset) {
+        this.piano.keyUp({midi: pitch});
+        this.pendingOffsets.delete(pitch);
+      }
+    }
+  }
+
+  /**
+   * Stops all currently playing notes.
+   */
+  stop() {
+    for (const [pitch, offset] of this.pendingOffsets.entries()) {
+      this.piano.keyUp({midi: pitch});
+      this.pendingOffsets.delete(pitch);
+    }
   }
 }

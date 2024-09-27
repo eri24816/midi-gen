@@ -2,7 +2,7 @@
     <div class="suggestion-card">
         <PianorollEditor :midiData="midiData" :editable="false" ref="pianorollEditor" />
         <MyButton @click="handleRemove" class="button remove-button">✘</MyButton>
-        <MyButton @click="handleAccept" class="button accept-button">✔</MyButton>
+        <MyButton @click="handleAccept" class="button accept-button" :disabled="accepted">Apply</MyButton>
     </div>
 </template>
 
@@ -23,6 +23,10 @@ export default {
         cardId: {
             type: Number,
             required: true
+        },
+        accepted: {
+            type: Boolean,
+            required: false
         }
     },
     components: {
@@ -82,7 +86,7 @@ export default {
     width: 30px;
     height: 30px;
     padding: 0;
-    background-color: #7e5050;
+    background-color: #9a9a9a61;
 }
 
 

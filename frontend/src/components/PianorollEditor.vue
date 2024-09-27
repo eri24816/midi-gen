@@ -1,6 +1,6 @@
 <template>
   <div class="pianoroll-editor">
-    <canvas class="pianoroll-canvas" ref="pianorollCanvas" @mousedown.prevent="handleMouseDown" @wheel.prevent="handleWheel" @contextmenu.prevent></canvas>
+    <canvas class="pianoroll-canvas" ref="pianorollCanvas" @dragover="handleDragOver" @mousedown.prevent="handleMouseDown" @wheel.prevent="handleWheel" @contextmenu.prevent></canvas>
     <div class="controls">
       <button @click="playOrStop"> {{ isPlaying ? 'Stop' : 'Play' }} </button>
       <button @click="saveMidi">Save</button>
@@ -12,73 +12,11 @@
 <script lang="ts">
 import { ref, onMounted } from 'vue';
 import { Midi } from '@tonejs/midi';
-import { Piano } from '@tonejs/piano'
 import { Note, Pianoroll } from '@/utils';
+import { now } from 'tone';
+import { piano } from '@/piano';
 
 
-/**
- * This class extends the functionality of the Piano class from `@tonejs/piano`.
- * It automatically do the key-up events for played notes based on their duration.
- */
-class AutoKeyupPiano {
-  /** Map to store pending note offsets (pitch -> offset) */
-  private pendingOffsets: Map<number, number> = new Map();
-
-  /**
-   * Creates an instance of AutoKeyupPiano.
-   * @param {Piano} piano - The Piano instance to be wrapped.
-   */
-  constructor(public piano: Piano) {
-    piano.load().then(() => {
-      console.log("Piano loaded");
-    });
-    piano.toDestination();
-  }
-
-  /**
-   * Plays a note and schedules its key-up event.
-   * @param {Note} note - The note to be played.
-   */
-  playNote(note: Note) {
-    if(this.pendingOffsets.has(note.pitch)) {
-      this.piano.keyUp({midi: note.pitch});
-    }
-    this.piano.keyDown({midi: note.pitch, velocity: note.velocity});
-    this.pendingOffsets.set(note.pitch, note.onset + note.duration);
-  }
-
-  /**
-   * Stops a note immediately.
-   * @param {Note} note - The note to be stopped.
-   */
-  stopNote(note: Note) {
-    this.piano.keyUp({midi: note.pitch});
-    this.pendingOffsets.delete(note.pitch);
-  }
-
-  /**
-   * Updates the piano state, releasing keys that have reached their offset time.
-   * @param {number} time - The current time.
-   */
-  update(time: number) {
-    for (const [pitch, offset] of this.pendingOffsets.entries()) {
-      if (time > offset) {
-        this.piano.keyUp({midi: pitch});
-        this.pendingOffsets.delete(pitch);
-      }
-    }
-  }
-
-  /**
-   * Stops all currently playing notes.
-   */
-  stop() {
-    for (const [pitch, offset] of this.pendingOffsets.entries()) {
-      this.piano.keyUp({midi: pitch});
-      this.pendingOffsets.delete(pitch);
-    }
-  }
-}
 
 interface DragBehavior {
   mouseMove(event: MouseEvent): void;
@@ -96,28 +34,29 @@ export default {
     editable: {
       type: Boolean,
       default: true
+    },
+    minPitch: {
+      type: Number,
+      default: 0
+    },
+    maxPitch: {
+      type: Number,
+      default: 127
     }
   },
-  setup(props: { midiData: ArrayBuffer | Uint8Array | null, editable: boolean }, { emit }) {
+  setup(props: { midiData: ArrayBuffer | Uint8Array | null, editable: boolean, minPitch: number, maxPitch: number }, { emit }) {
     const pianorollCanvas = ref<HTMLCanvasElement | null>(null);
-    const piano = new AutoKeyupPiano(new Piano({
-    velocities: 5,
-    volume: {
-    	pedal: -12,
-    	strings: -12,
-    	keybed: -12,
-    	harmonics: -12,
-    }
-    }));
     let ctx: CanvasRenderingContext2D | null = null;
     let scaleX = 50 ;
     let shiftX = 1;
     let gap = 0.6;
     let pianoroll = ref<Pianoroll>(new Pianoroll(props.midiData));
-    let cursorPosition = 0;
+    let cursorPosition = -0.125;
     let intervalId: ReturnType<typeof setInterval> | null = null;
     let dragBehavior: DragBehavior | null = null;
     let isPlaying = ref(false);
+    let songStartTime = 0;
+    const numPitches = props.maxPitch - props.minPitch + 1;
 
     class MoveNoteDragBehavior implements DragBehavior {
       private _note: Note;
@@ -128,7 +67,7 @@ export default {
         const noteUnderPointer = pianoroll.value.getNoteAt(screenToBeat(event.clientX), screenToPitch(event.clientY));
         this._note = noteUnderPointer ? noteUnderPointer : createNote(screenToBeat(event.clientX), screenToPitch(event.clientY));
         pianoroll.value.addNote(this._note);
-        piano.playNote(this._note);
+        piano.playNoteImmediate(this._note.pitch, this._note.velocity);
         render();
       }
       public mouseMove(event: MouseEvent): void {
@@ -139,7 +78,7 @@ export default {
 
         if (newNote.pitch !== this._note.pitch) {
         piano.stopNote(this._note);
-          piano.playNote(newNote);
+          piano.playNoteImmediate(newNote.pitch, newNote.velocity);
         }
         this._note = newNote;
         render();
@@ -172,6 +111,7 @@ export default {
     class CursorDragBehavior implements DragBehavior {
       public mouseMove(event: MouseEvent): void {
         cursorPosition = Math.max(-2, screenToBeat(event.clientX));
+        recalculateSongStartTime();
         render();
       }
       public mouseUp(event: MouseEvent): void {
@@ -195,20 +135,6 @@ export default {
       ctx.font = '14px Arial';
       let barGap: number;
       barGap = scaleX*4;
-      
-      // for (let i = (shiftX*scaleX)%(barDuration); i < width; i += barDuration) {
-      //   ctx.beginPath();
-      //   ctx.moveTo(i, 0);
-      //   ctx.lineTo(i, height);
-      //   ctx.stroke();
-      //   if(i%(barDuration/4) == 0) {
-      //     // text
-      //     ctx.fillStyle = '#FFFFFF';
-      //     ctx.font = '12px Arial';
-      //     ctx.textAlign = 'center';
-      //     ctx.fillText(((i/scaleX-1)/4)+1+'', i+10, height-12);
-      //   }
-      // }
 
       let startDrawnBar = Math.floor(canvasToBeat(0)*2)/2;
       let endDrawnBar = Math.floor(canvasToBeat(width)*2)/2;
@@ -249,7 +175,7 @@ export default {
         const hue = (note.pitch % 12) * 30; // 30 degrees per semitone
         const lightness = 40 + Math.abs(hue-180)*0.1;
         ctx.beginPath();
-        ctx.roundRect(((note.onset)+shiftX)*scaleX+gap, pitchToCanvas(note.pitch), (note.duration)*scaleX-2*gap, height/127, 1);
+        ctx.roundRect(((note.onset)+shiftX)*scaleX+gap, pitchToCanvas(note.pitch), (note.duration)*scaleX-2*gap, height/numPitches, 1);
         ctx.fillStyle = `hsl(${hue}, 90%, ${lightness}%)`;
         ctx.fill();
         noteCount++;
@@ -326,11 +252,12 @@ export default {
     }
 
     const pitchToCanvas = (pitch: number): number => {
-      return (127-pitch)/127*pianorollCanvas.value!.clientHeight;
+      return (numPitches-pitch + props.minPitch-1)/numPitches*pianorollCanvas.value!.clientHeight;
     }
 
     const screenToPitch = (screenY: number): number => {
-      return Math.ceil(127 - (screenY - pianorollCanvas.value!.getBoundingClientRect().top)/pianorollCanvas.value!.clientHeight*127);
+      let pitch = Math.ceil(numPitches - (screenY - pianorollCanvas.value!.getBoundingClientRect().top)/pianorollCanvas.value!.clientHeight*numPitches) + props.minPitch-1;
+      return Math.max(Math.min(pitch, props.maxPitch), props.minPitch);
     }
 
     const handleWheel = (event: WheelEvent): void => {
@@ -376,6 +303,12 @@ export default {
       document.removeEventListener('mouseup', handleMouseUp);
     };
 
+    const handleDragOver = (event: DragEvent): void => {
+      if (event.dataTransfer?.types.includes("tool")) {
+        event.preventDefault();
+      }
+    };
+
     const playOrStop = (): void => {
       if (isPlaying.value) {
         _stop();
@@ -390,20 +323,23 @@ export default {
         clearInterval(intervalId);
         intervalId = null;
       }
+      cursorPosition -= 0.125;
       intervalId = setInterval(() => {
         let oldCursorPosition = cursorPosition;
         cursorPosition += 0.125; // granularity of 1/8 beat
         if (cursorPosition > pianoroll.value.duration) {
-          cursorPosition = 0;
+          cursorPosition = -0.125;
+          recalculateSongStartTime();
           piano.stop();
         }
-        piano.update(cursorPosition);
-        const notesToPlay = pianoroll.value.getNotesOnsetBetween(oldCursorPosition, cursorPosition);
+        piano.update(songStartTime + (cursorPosition-0.5)/pianoroll.value.bps);
+        const notesToPlay = pianoroll.value.getNotesOnsetBetween(oldCursorPosition+0.25, cursorPosition+0.25);
         notesToPlay.forEach((note) => {
-          piano.playNote(note);
+          piano.playNote(songStartTime + (note.onset-0.125)/pianoroll.value.bps, note.pitch, note.velocity, songStartTime + (note.onset+note.duration-0.125)/pianoroll.value.bps);
         });
         render();
       }, 1000 * beatPerFrame / pianoroll.value.bps);
+      recalculateSongStartTime();
       isPlaying.value = true;
     };
 
@@ -445,6 +381,10 @@ export default {
       render();
     };
 
+    const inBounds = (x: number, y: number): boolean => {
+      return x >= 0 && x < pianorollCanvas.value!.clientWidth && y >= 0 && y < pianorollCanvas.value!.clientHeight;
+    }
+
 
     onMounted(() => {
       if (pianorollCanvas.value) {
@@ -452,6 +392,10 @@ export default {
       }
       render();
     });
+
+    const recalculateSongStartTime = (): void => {
+      songStartTime = now() - (cursorPosition+0.125)/pianoroll.value.bps;
+    }
 
     return {
       pianorollCanvas,
@@ -466,7 +410,12 @@ export default {
       loadMidiFile,
       clear,
       isPlaying,
-      stop
+      stop,
+      handleDragOver,
+      inBounds,
+      screenToBeat,
+      screenToCanvas,
+      screenToPitch
     };
   },
   watch: {

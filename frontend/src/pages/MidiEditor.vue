@@ -1,11 +1,12 @@
 <template>
   <div class="midi-editor">
-    <input type="file" accept=".mid,.midi" @change="handleFileInput" />
+    <input type="file" accept=".mid,.midi" @change="handleFileInput" ref="fileInput" />
     <div class="panels">
       <div class="left-panel">
-        <PianorollEditor class="pianoroll-editor" @save="handleSave" ref="pianorollEditor" />
+        <PianorollEditor class="pianoroll-editor" @save="handleSave" ref="pianorollEditor" :minPitch="21" :maxPitch="108" />
+        <ToolBox/>
       </div>
-      <SuggestionPanel class="right-panel"/>
+      <SuggestionPanel class="right-panel" ref="suggestionPanel"/>
     </div>
   </div>
 </template>
@@ -14,6 +15,7 @@
 import { ref, defineComponent } from 'vue';
 import PianorollEditor from '@/components/PianorollEditor.vue';
 import MyButton from '@/components/MyButton.vue';
+import ToolBox from '@/components/ToolBox.vue';
 import SuggestionPanel from '@/components/SuggestionPanel.vue';
 import { Midi } from '@tonejs/midi';
 import { useStore } from '@/stores/counter';
@@ -24,19 +26,20 @@ export default defineComponent({
   components: {
     PianorollEditor,
     MyButton,
-    SuggestionPanel
+    SuggestionPanel,
+    ToolBox
   },
   setup() {
     const store = useStore();
     const pianorollEditor = ref<InstanceType<typeof PianorollEditor> | null>(null);
-
+    const suggestionPanel = ref<InstanceType<typeof SuggestionPanel> | null>(null);
+    const fileInput = ref<HTMLInputElement | null>(null);
     const handleFileInput = (event: Event) => {
       const target = event.target as HTMLInputElement;
       const file = target.files?.[0];
       if (file && (file.type === 'audio/midi' || file.type === 'audio/mid')) {
-        file.arrayBuffer().then((buffer) => {
-          store.mainPianoroll = new Pianoroll(buffer);
-        });
+          store.pianorollEditor!.loadMidiFile(file);
+          fileInput.value!.value = '';
       } else {
         alert('Please select a valid MIDI file.');
       }
@@ -49,15 +52,15 @@ export default defineComponent({
     return {
       pianorollEditor,
       handleFileInput,
-      handleSave
+      handleSave,
+      suggestionPanel,
+      fileInput
     };
   },
   mounted() {
     const store = useStore();
-    this.pianorollEditor!.pianoroll = store.mainPianoroll;
-    store.$subscribe((mutation, state) => {
-      this.pianorollEditor!.pianoroll = store.mainPianoroll;
-    });
+    store.pianorollEditor = this.pianorollEditor;
+    store.suggestionPanel = this.suggestionPanel;
   },
 });
 </script>
@@ -75,29 +78,39 @@ export default defineComponent({
 .panels {
   display: flex;
   flex-direction: row;
-  gap: 10px;
+  gap: 50px;
   flex-grow: 1;
   margin-bottom: 20px;
+  justify-content: space-between;
+  padding: 20px 50px;
+
 }
 
 .left-panel {
+  position: relative;
   display: flex;
   flex-direction: column;
   gap: 20px;
-  width: 65%;
+  flex-basis: 65%;
   align-items: center;
-  padding: 20px 0 20px 0;
+  flex-grow: 1;
 }
 
 .right-panel {
+  position: relative;
   display: flex;
   flex-direction: column;
   gap: 20px;
-  width: 25%;
+  flex-basis: 25%;
+  flex-grow: 1;
 }
 
 .pianoroll-editor {
-  width: 90%;
+  width: 100%;
   flex-grow: 1;
+}
+
+.toolbox {
+  flex-basis: 150px;
 }
 </style>

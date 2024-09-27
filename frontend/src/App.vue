@@ -33,4 +33,7 @@ body {
   box-sizing: border-box;
   min-height: 0;
 }
+h2 {
+  margin: 5px;
+}
 </style>
