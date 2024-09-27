@@ -1,5 +1,6 @@
 import { ref, computed } from 'vue'
 import { defineStore } from 'pinia'
+import { Pianoroll } from '@/utils'
 
 export const useCounterStore = defineStore('counter', () => {
   const count = ref(0)
@@ -9,4 +10,12 @@ export const useCounterStore = defineStore('counter', () => {
   }
 
   return { count, doubleCount, increment }
+})
+
+export const useStore = defineStore('store', {
+  state: () => ({
+    mainPianoroll: new Pianoroll()
+  }),
+  actions: {
+  }
 })

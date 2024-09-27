@@ -1,9 +1,12 @@
 <template>
   <div class="midi-editor">
-    <h1>MIDI Editor</h1>
     <input type="file" accept=".mid,.midi" @change="handleFileInput" />
-    <PianorollEditor @save="handleSave" ref="pianorollEditor" />
-    <MyButton @clicked="handleGenerate">Generate Bar</MyButton>
+    <div class="panels">
+      <div class="left-panel">
+        <PianorollEditor class="pianoroll-editor" @save="handleSave" ref="pianorollEditor" />
+      </div>
+      <SuggestionPanel class="right-panel"/>
+    </div>
   </div>
 </template>
 
@@ -11,16 +14,16 @@
 import { ref, defineComponent } from 'vue';
 import PianorollEditor from '@/components/PianorollEditor.vue';
 import MyButton from '@/components/MyButton.vue';
-import axios from 'axios';
-import { base64Decode, base64Encode } from '@/utils';
-import { Pianoroll } from '@/utils';
+import SuggestionPanel from '@/components/SuggestionPanel.vue';
 import { Midi } from '@tonejs/midi';
+import { useStore } from '@/stores/counter';
 
 export default defineComponent({
   name: 'MidiEditor',
   components: {
     PianorollEditor,
-    MyButton
+    MyButton,
+    SuggestionPanel
   },
   setup() {
     const pianorollEditor = ref<InstanceType<typeof PianorollEditor> | null>(null);
@@ -39,26 +42,58 @@ export default defineComponent({
       console.log('MIDI file saved');
     };
 
-    const handleGenerate = () => {
-      axios.post('/api/generate', {
-        midi: base64Encode(pianorollEditor.value!.pianoroll.toMidi().toArray()),
-        metadata: {
-          title: 'Generated MIDI',
-          artist: 'AI',
-          album: 'Generated'
-        }
-      }).then((response) => {
-        pianorollEditor.value!.pianoroll = new Pianoroll(base64Decode(response.data.midi));
-        pianorollEditor.value!.render();
-      });
-    };
-
     return {
       pianorollEditor,
       handleFileInput,
-      handleSave,
-      handleGenerate
+      handleSave
     };
-  }
+  },
+  mounted() {
+    const store = useStore();
+    this.pianorollEditor!.pianoroll = store.mainPianoroll;
+    store.$subscribe((mutation, state) => {
+      this.pianorollEditor!.pianoroll = store.mainPianoroll;
+    });
+  },
 });
 </script>
+
+<style scoped>
+.midi-editor {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 10px;
+  height: 100vh;
+  max-height: 100vh;
+}
+
+.panels {
+  display: flex;
+  flex-direction: row;
+  gap: 10px;
+  flex-grow: 1;
+}
+
+.left-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  width: 65%;
+  align-items: center;
+  padding: 20px 0 20px 0;
+}
+
+.right-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  width: 25%;
+  padding: 20px 0 20px 0;
+}
+
+.pianoroll-editor {
+  width: 90%;
+  flex-grow: 1;
+}
+</style>

@@ -5,15 +5,16 @@
       <button @click="playMidi">Play</button>
       <button @click="stopMidi">Stop</button>
       <button @click="saveMidi">Save</button>
+      <button @click="clear">Clear</button>
     </div>
   </div>
 </template>
 
 <script lang="ts">
-import { ref, onMounted, watch } from 'vue';
-import { Midi, Track } from '@tonejs/midi';
+import { ref, onMounted } from 'vue';
+import { Midi } from '@tonejs/midi';
 import { Piano } from '@tonejs/piano'
-import { Note, Pianoroll, getBps } from '@/utils';
+import { Note, Pianoroll } from '@/utils';
 
 
 /**
@@ -40,6 +41,9 @@ class AutoKeyupPiano {
    * @param {Note} note - The note to be played.
    */
   playNote(note: Note) {
+    if(this.pendingOffsets.has(note.pitch)) {
+      this.piano.keyUp({midi: note.pitch});
+    }
     this.piano.keyDown({midi: note.pitch, velocity: note.velocity});
     this.pendingOffsets.set(note.pitch, note.onset + note.duration);
   }
@@ -85,7 +89,13 @@ interface DragBehavior {
 export default {
   name: 'PianorollEditor',
   emits: ['save'],
-  setup({},{ emit }) {
+  props: {
+    midiData: {
+      type: ArrayBuffer,
+      default: null
+    }
+  },
+  setup(props:{midiData: ArrayBuffer|null}, { emit }) {
     const pianorollCanvas = ref<HTMLCanvasElement | null>(null);
     const piano = new AutoKeyupPiano(new Piano({
     velocities: 5,
@@ -100,7 +110,7 @@ export default {
     let scaleX = 50 ;
     let shiftX = 1;
     let gap = 0.6;
-    let pianoroll = ref<Pianoroll>(new Pianoroll());
+    let pianoroll = ref<Pianoroll>(new Pianoroll(props.midiData));
     let cursorPosition = 0;
     let intervalId: ReturnType<typeof setInterval> | null = null;
     let dragBehavior: DragBehavior | null = null;
@@ -120,11 +130,11 @@ export default {
       public mouseMove(event: MouseEvent): void {
         
         pianoroll.value.removeNote(this._note);
-        piano.stopNote(this._note);
         const newNote = createNote(screenToBeat(event.clientX), screenToPitch(event.clientY),this._note.velocity);
         pianoroll.value.addNote(newNote);
 
         if (newNote.pitch !== this._note.pitch) {
+        piano.stopNote(this._note);
           piano.playNote(newNote);
         }
         this._note = newNote;
@@ -157,7 +167,7 @@ export default {
 
     class CursorDragBehavior implements DragBehavior {
       public mouseMove(event: MouseEvent): void {
-        cursorPosition = screenToBeat(event.clientX);
+        cursorPosition = Math.max(-2, screenToBeat(event.clientX));
         render();
       }
       public mouseUp(event: MouseEvent): void {
@@ -174,22 +184,55 @@ export default {
       pianorollCanvas.value.width = width;
       // Clear canvas
       ctx.clearRect(0, 0, width, height);
+
       // Draw bar lines
       ctx.strokeStyle = '#333333';
-      let barDuration: number;
-      barDuration = scaleX*4;
+      ctx.fillStyle = 'white';
+      ctx.font = '14px Arial';
+      let barGap: number;
+      barGap = scaleX*4;
       
-      for (let i = (shiftX*scaleX)%(barDuration); i < width; i += barDuration) {
+      // for (let i = (shiftX*scaleX)%(barDuration); i < width; i += barDuration) {
+      //   ctx.beginPath();
+      //   ctx.moveTo(i, 0);
+      //   ctx.lineTo(i, height);
+      //   ctx.stroke();
+      //   if(i%(barDuration/4) == 0) {
+      //     // text
+      //     ctx.fillStyle = '#FFFFFF';
+      //     ctx.font = '12px Arial';
+      //     ctx.textAlign = 'center';
+      //     ctx.fillText(((i/scaleX-1)/4)+1+'', i+10, height-12);
+      //   }
+      // }
+
+      let startDrawnBar = Math.floor(canvasToBeat(0)*2)/2;
+      let endDrawnBar = Math.floor(canvasToBeat(width)*2)/2;
+      let hop = 0.5;
+      let hops = [[480,16],[300,8],[140,4],[80,2],[40,1]];
+      for (const [bar, hop_] of hops) {
+        if (endDrawnBar - startDrawnBar > bar) {
+          hop = hop_;
+          startDrawnBar = Math.floor(startDrawnBar/hop)*hop;
+          endDrawnBar = Math.floor(endDrawnBar/hop)*hop;
+          break;
+        }
+      }
+      startDrawnBar = Math.max(startDrawnBar, 0);
+      for (let i = startDrawnBar; i <= endDrawnBar; i+=hop) {
+        if (i%4 == 0) {
+          ctx.strokeStyle = '#555555';
+        } else if (i%1 == 0) {
+          ctx.strokeStyle = '#333333';
+        } else {
+          ctx.strokeStyle = '#222222';
+        }
         ctx.beginPath();
-        ctx.moveTo(i, 0);
-        ctx.lineTo(i, height);
+        ctx.moveTo(beatToCanvas(i), 0);
+        ctx.lineTo(beatToCanvas(i), height);
         ctx.stroke();
-        if(i%(barDuration/4) == 0) {
-          // text
-          ctx.fillStyle = '#FFFFFF';
-          ctx.font = '12px Arial';
-          ctx.textAlign = 'center';
-          ctx.fillText(((i/scaleX-1)/4)+1+'', i+10, height-12);
+        if (i%4 == 0) {
+          ctx.fillText((i/4+1).toString(), beatToCanvas(i)+10, height-12);
         }
       }
 
@@ -234,6 +277,9 @@ export default {
 
     const createNote = (onset: number, pitch: number, velocity: number = 0.6, snap=0.125): Note => {
       onset = Math.round(onset/snap)*snap;
+      if (onset < 0) {
+        onset = 0;
+      }
       const notesInBar = pianoroll.value.getNotesOnsetBetween(onset, onset - onset%4 + 4);
       let duration = - onset%4 + 4;
       for (const note of notesInBar) {
@@ -288,19 +334,13 @@ export default {
         let oldPianorollXUnderMouse = (event.clientX - pianorollCanvas.value!.getBoundingClientRect().left)/scaleX - shiftX;
         scaleX *= Math.exp(event.deltaY/-700);
         shiftX = (event.clientX - pianorollCanvas.value!.getBoundingClientRect().left)/scaleX - oldPianorollXUnderMouse;
+        shiftX = Math.min(shiftX, 2);
         event.preventDefault();
       } else {
         shiftX -= 0.5*event.deltaY/scaleX;
+        shiftX = Math.min(shiftX, 2);
       }
       render();
-    };
-
-    const handleDoubleClick = (event: MouseEvent): void => {
-      cursorPosition = screenToBeat(event.clientX);
-      piano.stop();
-      render();
-      event.preventDefault();
-      event.stopPropagation();
     };
 
     const handleMouseDown = (event: MouseEvent): void => {
@@ -366,8 +406,7 @@ export default {
     };
 
     const saveMidi = (): void => {
-      if (!midiData) return;
-      const outputBuffer = midiData.toArray();
+      const outputBuffer = pianoroll.value.toMidi().toArray();
       const blob = new Blob([outputBuffer], { type: 'audio/midi' });
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
@@ -384,11 +423,17 @@ export default {
       render();
     };
 
+    const clear = (): void => {
+      pianoroll.value = new Pianoroll();
+      render();
+    };
+
 
     onMounted(() => {
       if (pianorollCanvas.value) {
         ctx = pianorollCanvas.value.getContext('2d');
       }
+      render();
     });
 
     return {
@@ -397,33 +442,47 @@ export default {
       handleMouseDown,
       handleMouseMove,
       handleMouseUp,
-      handleDoubleClick,
       playMidi,
       stopMidi,
       saveMidi,
       pianoroll,
       render,
-      loadMidiFile
+      loadMidiFile,
+      clear
     };
+  },
+  watch: {
+    pianoroll(newVal) {
+      console.log(newVal);
+      this.render();
+    }
   }
 }
 </script>
 
 <style scoped>
+.pianoroll-editor {
+  position: relative;
+}
 
 .pianoroll-canvas {
+  position: absolute;
   border: 1px solid black;
   border-radius: 10px;
   background-color: #0e0e0e;
-  width: 1200px;
-  height: 600px;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
 }
 
 .controls {
+  position: absolute;
+  bottom:  5px;
+  right: 5px;
   display: flex;
   flex-direction: row;
   justify-content: center;
-  gap: 10px;
-  margin-top: 10px;
+  gap: 5px;
 }
 </style>

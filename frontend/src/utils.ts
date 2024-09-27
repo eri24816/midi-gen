@@ -64,11 +64,13 @@ export class Pianoroll{
   }
 
   toMidi(): Midi {
-    const oldMidi = new Midi(this.midiData!);
     
     const midi = new Midi();
     midi.addTrack();
-    midi.header = oldMidi.header;
+    if (this.midiData) {
+      const oldMidi = new Midi(this.midiData);
+      midi.header = oldMidi.header;
+    }
     midi.header.update();
     const ticksPerSecond = midi.header.secondsToTicks(1);
     this.bps = getBps(midi);
@@ -82,9 +84,6 @@ export class Pianoroll{
         velocity: note.velocity
       });
     }
-
-    console.log(midi.tracks[0].notes[0].time);
-    debugger
     return midi;
   }
 

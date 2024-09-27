@@ -21,12 +21,16 @@ export default defineComponent({
   text-align: center;
   color: #e0e0e0;
   background-color: #1e1e1e;
-  margin-top: 40px;
 }
 
 body {
   margin: 0;
   padding: 0;
   background-color: #1e1e1e;
+  
+}
+*{
+  box-sizing: border-box;
+  min-height: 0;
 }
 </style>
