@@ -17,8 +17,8 @@ async def generate_midi(request: MidiGenerationRequest):
         input_pr = Pianoroll.from_midi_data(BytesIO(midi_data))
         
 
-        
-        pr = inference(prompt=input_pr)
+        print('input_pr:', input_pr.duration, len(input_pr.notes))
+        pr = inference(duration=32, prompt=input_pr)
         pr = pr.slice(input_pr.duration)
 
         buffer = BytesIO()

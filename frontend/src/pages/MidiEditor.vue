@@ -17,6 +17,7 @@ import MyButton from '@/components/MyButton.vue';
 import SuggestionPanel from '@/components/SuggestionPanel.vue';
 import { Midi } from '@tonejs/midi';
 import { useStore } from '@/stores/counter';
+import { Pianoroll } from '@/utils';
 
 export default defineComponent({
   name: 'MidiEditor',
@@ -26,13 +27,16 @@ export default defineComponent({
     SuggestionPanel
   },
   setup() {
+    const store = useStore();
     const pianorollEditor = ref<InstanceType<typeof PianorollEditor> | null>(null);
 
     const handleFileInput = (event: Event) => {
       const target = event.target as HTMLInputElement;
       const file = target.files?.[0];
       if (file && (file.type === 'audio/midi' || file.type === 'audio/mid')) {
-        pianorollEditor.value!.loadMidiFile(file);
+        file.arrayBuffer().then((buffer) => {
+          store.mainPianoroll = new Pianoroll(buffer);
+        });
       } else {
         alert('Please select a valid MIDI file.');
       }
@@ -73,6 +77,7 @@ export default defineComponent({
   flex-direction: row;
   gap: 10px;
   flex-grow: 1;
+  margin-bottom: 20px;
 }
 
 .left-panel {
@@ -89,7 +94,6 @@ export default defineComponent({
   flex-direction: column;
   gap: 20px;
   width: 25%;
-  padding: 20px 0 20px 0;
 }
 
 .pianoroll-editor {

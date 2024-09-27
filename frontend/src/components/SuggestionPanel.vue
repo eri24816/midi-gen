@@ -3,11 +3,11 @@
         <h2>Suggestions</h2>
         <div class="scroll-container">
             <div class="scroll-content">
-                <SuggestionCard v-for="midiData in midiDataList" :midiData="midiData" />
+                <SuggestionCard v-for="[cardId, midiData] in midiDataList" :key="cardId" :midiData="midiData" :cardId="cardId" @remove="handleRemove" />
             </div>
         </div>
 
-        <MyButton @clicked="handleGenerate">Generate Bar</MyButton>
+        <MyButton @click="handleGenerate">Generate Bar</MyButton>
     </div>
 </template>
 
@@ -32,7 +32,7 @@ export default defineComponent({
     },
     data() {
         return {
-            midiDataList: [] as ArrayBuffer[]
+            midiDataList: new Map<number, Uint8Array>()
         }
     },
     methods: {
@@ -41,13 +41,16 @@ export default defineComponent({
                 midi: base64Encode(this.storeInstance.mainPianoroll.toMidi().toArray()),
                 metadata: {
                     title: 'Generated MIDI',
-                    artist: 'AI',
-                    album: 'Generated'
+                    artist: 'AdI',
+                    album: 'Generated' 
                 }
             }).then((response) => {
                 //this.storeInstance.mainPianoroll = new Pianoroll(base64Decode(response.data.midi));
-                this.midiDataList.push(base64Decode(response.data.midi));
+                this.midiDataList.set(Math.random(), base64Decode(response.data.midi));
             });
+        },
+        handleRemove(cardId: number) {
+            this.midiDataList.delete(cardId);
         }
     }
 });
@@ -59,10 +62,15 @@ export default defineComponent({
     flex-direction: column;
     align-items: stretch;
     gap: 10px;
+    background-color: #151515;
+    margin-bottom: 20px;
+    border-radius: 8px;
+    border: 1px inset #111111;
+    padding: 10px;
 }
 
 .scroll-container {
-    overflow: scroll;
+    overflow: auto;
 }
 
 .scroll-content {
@@ -74,6 +82,6 @@ export default defineComponent({
 
 .suggestion-card {
     height: 200px;
-    margin: 0 20px;
+    margin: 0 40px;
 }
 </style>

@@ -43,7 +43,11 @@ export class Pianoroll{
   private onsets: Note[];
   bps: number;
   private midiData: ArrayBuffer|null = null;
-  constructor(midiData: ArrayBuffer|null = null){
+  private _duration: number = 0;
+  get duration(): number {
+    return this._duration;
+  }
+  constructor(midiData: ArrayBuffer|Uint8Array|null = null){
     if (!midiData) {
       this.onsets = [];
       this.bps = 120/60;
@@ -59,8 +63,7 @@ export class Pianoroll{
       note.midi,
       note.velocity
     ));
-    let ticksPerSecond = midi.header.secondsToTicks(1);
-    ticksPerSecond = midi.header.secondsToTicks(1);
+    this._duration = Math.max(...this.onsets.map((note) => note.onset + note.duration));
   }
 
   toMidi(): Midi {
@@ -122,5 +125,6 @@ export class Pianoroll{
 
   removeNote(note: Note) {
     this.onsets = this.onsets.filter((n) => !n.equals(note));
+    this._duration = Math.max(...this.onsets.map((note) => note.onset + note.duration));
   }
 }

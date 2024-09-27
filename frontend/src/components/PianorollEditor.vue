@@ -1,11 +1,10 @@
 <template>
   <div class="pianoroll-editor">
-    <canvas class="pianoroll-canvas" ref="pianorollCanvas" @mousedown.prevent="handleMouseDown" @wheel="handleWheel" @contextmenu.prevent></canvas>
+    <canvas class="pianoroll-canvas" ref="pianorollCanvas" @mousedown.prevent="handleMouseDown" @wheel.prevent="handleWheel" @contextmenu.prevent></canvas>
     <div class="controls">
-      <button @click="playMidi">Play</button>
-      <button @click="stopMidi">Stop</button>
+      <button @click="playOrStop"> {{ isPlaying ? 'Stop' : 'Play' }} </button>
       <button @click="saveMidi">Save</button>
-      <button @click="clear">Clear</button>
+      <button @click="clear" v-if="editable">Clear</button>
     </div>
   </div>
 </template>
@@ -91,11 +90,15 @@ export default {
   emits: ['save'],
   props: {
     midiData: {
-      type: ArrayBuffer,
+      type: [ArrayBuffer, Uint8Array],
       default: null
+    },
+    editable: {
+      type: Boolean,
+      default: true
     }
   },
-  setup(props:{midiData: ArrayBuffer|null}, { emit }) {
+  setup(props: { midiData: ArrayBuffer | Uint8Array | null, editable: boolean }, { emit }) {
     const pianorollCanvas = ref<HTMLCanvasElement | null>(null);
     const piano = new AutoKeyupPiano(new Piano({
     velocities: 5,
@@ -114,6 +117,7 @@ export default {
     let cursorPosition = 0;
     let intervalId: ReturnType<typeof setInterval> | null = null;
     let dragBehavior: DragBehavior | null = null;
+    let isPlaying = ref(false);
 
     class MoveNoteDragBehavior implements DragBehavior {
       private _note: Note;
@@ -351,10 +355,10 @@ export default {
         if (Math.abs(cursorX - pointerX) < 10) {
           dragBehavior = new CursorDragBehavior();
         } 
-        else {
+        else if (props.editable) {
           dragBehavior = new MoveNoteDragBehavior(event);
         }
-      } else if (event.buttons === 2) {
+      } else if (event.buttons === 2 && props.editable) {
         dragBehavior = new RemoveNoteDragBehavior(event);
       }
 
@@ -372,22 +376,27 @@ export default {
       document.removeEventListener('mouseup', handleMouseUp);
     };
 
-    const addNote = (event: MouseEvent): void => {
-      // Implementation of adding a note
-      // Update midiData with the new note
-      // ...
-      render();
+    const playOrStop = (): void => {
+      if (isPlaying.value) {
+        _stop();
+      } else {
+        _play();
+      }
     };
 
-    const playMidi = (): void => {
+    const _play = (): void => {
       const beatPerFrame = 0.125;
       if (intervalId) {
         clearInterval(intervalId);
         intervalId = null;
       }
       intervalId = setInterval(() => {
-        const oldCursorPosition = cursorPosition;
+        let oldCursorPosition = cursorPosition;
         cursorPosition += 0.125; // granularity of 1/8 beat
+        if (cursorPosition > pianoroll.value.duration) {
+          cursorPosition = 0;
+          piano.stop();
+        }
         piano.update(cursorPosition);
         const notesToPlay = pianoroll.value.getNotesOnsetBetween(oldCursorPosition, cursorPosition);
         notesToPlay.forEach((note) => {
@@ -395,14 +404,22 @@ export default {
         });
         render();
       }, 1000 * beatPerFrame / pianoroll.value.bps);
+      isPlaying.value = true;
     };
 
-    const stopMidi = (): void => {
+    const _stop = (): void => {
       if (intervalId) {
         clearInterval(intervalId);
         intervalId = null;
       }
       piano.stop();
+      isPlaying.value = false;
+    };
+
+    const stop = (): void => {
+      if (isPlaying.value) {
+        _stop();
+      }
     };
 
     const saveMidi = (): void => {
@@ -442,13 +459,14 @@ export default {
       handleMouseDown,
       handleMouseMove,
       handleMouseUp,
-      playMidi,
-      stopMidi,
+      playOrStop,
       saveMidi,
       pianoroll,
       render,
       loadMidiFile,
-      clear
+      clear,
+      isPlaying,
+      stop
     };
   },
   watch: {
@@ -456,6 +474,9 @@ export default {
       console.log(newVal);
       this.render();
     }
+  },
+  unmounted() {
+    this.stop();
   }
 }
 </script>

@@ -1,21 +1,20 @@
 <template>
-  <button @click="clicked">
+  <button @click="click">
     <slot></slot>
   </button>
 </template>
 
 <script setup lang="ts">
 
-const emit = defineEmits(['clicked']);
+const emit = defineEmits(['click']);
 
-const clicked = () => {
-  emit('clicked');
+const click = () => {
+  emit('click');
 };
 </script>
 
 <style scoped>
 button {
-  padding: 10px 20px;
   font-size: 16px;
   cursor: pointer;
   background-color: #4CAF50;
