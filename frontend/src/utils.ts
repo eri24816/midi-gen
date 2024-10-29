@@ -1,4 +1,4 @@
-import { Midi } from '@tonejs/midi';
+import { Midi } from '@tonejs/midi/src/Midi';
 import type { Piano } from '@tonejs/piano'
 import { Buffer } from 'buffer';
 import { now} from 'tone';

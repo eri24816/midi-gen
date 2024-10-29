@@ -8,7 +8,7 @@
             </div>
         </div>
 
-        <MyButton @click="handleGenerate">Generate More</MyButton>
+        <MyButton class="generate-more" @click="handleGenerate">Generate More</MyButton>
     </div>
 </template>
 
@@ -90,4 +90,9 @@ export default defineComponent({
     height: 200px;
     margin: 0 40px;
 }
+
+.generate-more {
+    flex-shrink: 0;
+}
+
 </style>

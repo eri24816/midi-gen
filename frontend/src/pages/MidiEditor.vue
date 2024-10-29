@@ -17,7 +17,7 @@ import PianorollEditor from '@/components/PianorollEditor.vue';
 import MyButton from '@/components/MyButton.vue';
 import ToolBox from '@/components/ToolBox.vue';
 import SuggestionPanel from '@/components/SuggestionPanel.vue';
-import { Midi } from '@tonejs/midi';
+import { Midi } from '@tonejs/midi/src/Midi';
 import { useStore } from '@/stores/counter';
 import { Pianoroll } from '@/utils';
 
@@ -112,5 +112,9 @@ export default defineComponent({
 
 .toolbox {
   flex-basis: 150px;
+}
+
+input{
+  flex-shrink: 0;
 }
 </style>

@@ -11,7 +11,7 @@
 
 <script lang="ts">
 import { ref, onMounted } from 'vue';
-import { Midi } from '@tonejs/midi';
+import { Midi } from '@tonejs/midi/src/Midi';
 import { Note, Pianoroll } from '@/utils';
 import { now } from 'tone';
 import { piano } from '@/piano';

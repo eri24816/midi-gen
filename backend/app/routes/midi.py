@@ -1,11 +1,12 @@
 from io import BytesIO
 import traceback
 from fastapi import APIRouter, HTTPException
+
+from ..inference_cake import inference
 from ..models import MidiGenerationRequest
 import base64
 from music_data_analysis.data import Pianoroll
 
-from ..inference import inference
 
 router = APIRouter()
 
@@ -19,7 +20,7 @@ async def generate_midi(request: MidiGenerationRequest):
 
         print('input_pr:', input_pr.duration, len(input_pr.notes))
         pr = inference(duration=32, prompt=input_pr)
-        pr = pr.slice(input_pr.duration)
+        
 
         buffer = BytesIO()
         pr.to_midi().dump(file=buffer)

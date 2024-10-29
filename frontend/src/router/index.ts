@@ -20,4 +20,6 @@ const router = createRouter({
   routes
 })
 
+const a=2;
+
 export default router

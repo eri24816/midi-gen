@@ -13,6 +13,7 @@
     "format": "prettier --write src/"
   },
   "dependencies": {
+    "@tonejs/midi": "github:eri24816/Midi",
     "@tonejs/piano": "^0.2.1",
     "axios": "^1.7.7",
     "buffer": "^6.0.3",
@@ -23,7 +24,6 @@
   },
   "devDependencies": {
     "@rushstack/eslint-patch": "^1.8.0",
-    "@tonejs/midi": "^2.0.28",
     "@tsconfig/node20": "^20.1.4",
     "@types/node": "^20.16.7",
     "@vitejs/plugin-vue": "^5.0.5",
