@@ -17,7 +17,7 @@ const click = () => {
 button {
   font-size: 16px;
   cursor: pointer;
-  background-color: #4CAF50;
+  background-color: #307d33;
   color: white;
   border: none;
   border-radius: 4px;

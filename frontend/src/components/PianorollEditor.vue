@@ -25,7 +25,11 @@ interface DragBehavior {
 
 export default {
   name: 'PianorollEditor',
-  emits: ['save'],
+  emits: {
+    edit: (addedNotes: Note[], removedNotes: Note[]) => true,
+    transform: (transform: { shiftX: number; scaleX: number }) => true,
+    save: () => true
+  },
   props: {
     midiData: {
       type: [ArrayBuffer, Uint8Array],
@@ -65,10 +69,16 @@ export default {
       }
       constructor(event: MouseEvent){
         const noteUnderPointer = pianoroll.value.getNoteAt(screenToBeat(event.clientX), screenToPitch(event.clientY));
-        this._note = noteUnderPointer ? noteUnderPointer : createNote(screenToBeat(event.clientX), screenToPitch(event.clientY));
-        pianoroll.value.addNote(this._note);
+        if (noteUnderPointer) {
+          this._note = noteUnderPointer;
+        } else {
+          this._note = createNote(screenToBeat(event.clientX), screenToPitch(event.clientY));
+          pianoroll.value.addNote(this._note);
+          emit('edit', [this._note], []);
+        }
         piano.playNoteImmediate(this._note.pitch, this._note.velocity);
         render();
+
       }
       public mouseMove(event: MouseEvent): void {
         
@@ -80,6 +90,7 @@ export default {
         piano.stopNote(this._note);
           piano.playNoteImmediate(newNote.pitch, newNote.velocity);
         }
+        emit('edit', [newNote], [this._note]);
         this._note = newNote;
         render();
       }
@@ -94,6 +105,7 @@ export default {
         if (noteUnderPointer) {
           pianoroll.value.removeNote(noteUnderPointer);
           render();
+          emit('edit', [], [noteUnderPointer]);
         }
       }
       public mouseMove(event: MouseEvent): void {
@@ -101,6 +113,7 @@ export default {
         if (noteUnderPointer) {
           pianoroll.value.removeNote(noteUnderPointer);
           render();
+          emit('edit', [], [noteUnderPointer]);
         }
       }
       public mouseUp(event: MouseEvent): void {
@@ -265,13 +278,14 @@ export default {
         let oldPianorollXUnderMouse = (event.clientX - pianorollCanvas.value!.getBoundingClientRect().left)/scaleX - shiftX;
         scaleX *= Math.exp(event.deltaY/-700);
         shiftX = (event.clientX - pianorollCanvas.value!.getBoundingClientRect().left)/scaleX - oldPianorollXUnderMouse;
-        shiftX = Math.min(shiftX, 2);
+        shiftX = Math.min(shiftX, 100/scaleX);
         event.preventDefault();
       } else {
         shiftX -= 0.5*event.deltaY/scaleX;
-        shiftX = Math.min(shiftX, 2);
+        shiftX = Math.min(shiftX, 100/scaleX);
       }
       render();
+      emit('transform', {scaleX, shiftX});
     };
 
     const handleMouseDown = (event: MouseEvent): void => {
@@ -391,6 +405,7 @@ export default {
         ctx = pianorollCanvas.value.getContext('2d');
       }
       render();
+      emit('transform', {scaleX, shiftX});
     });
 
     const recalculateSongStartTime = (): void => {

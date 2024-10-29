@@ -66,7 +66,7 @@ export class Pianoroll{
       note.midi,
       note.velocity
     ));
-    this._duration = Math.max(...this.onsets.map((note) => note.onset + note.duration));
+    this.recalculateDuration();
   }
 
   toMidi(): Midi {
@@ -129,7 +129,7 @@ export class Pianoroll{
 
   removeNote(note: Note) {
     this.onsets = this.onsets.filter((n) => !n.equals(note));
-    this._duration = Math.max(...this.onsets.map((note) => note.onset + note.duration));
+    this.recalculateDuration();
   }
 
   overlapWith(other: Pianoroll, shift: number = 0): void {
@@ -156,7 +156,12 @@ export class Pianoroll{
   }
 
   recalculateDuration(): void {
-    this._duration = Math.max(...this.onsets.map((note) => note.onset + note.duration));
+    if (this.onsets.length === 0) {
+        this._duration = 0;
+    } else
+        this._duration = Math.max(
+            ...this.onsets.map((note) => note.onset + note.duration),
+        );
   }
 }
 

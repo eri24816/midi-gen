@@ -32,8 +32,8 @@ export default {
             event.dataTransfer?.setData("tool", "Generate");
         },
         handleDragEnd(event: DragEvent) {
-            if(this.store.pianorollEditor!.inBounds(event.clientX, event.clientY)) {
-                this.beat = this.store.pianorollEditor!.screenToBeat(event.clientX);
+            if(this.store.mainPianoroll!.inBounds(event.clientX, event.clientY)) {
+                this.beat = this.store.mainPianoroll!.screenToBeat(event.clientX);
                 this.beat = Math.floor(this.beat/4)*4; // snap to bar
                 this.store.suggestionPanel!.reset();
                 this.store.generateCallback = this.generate;
@@ -45,7 +45,7 @@ export default {
             console.log("👾Generate", this.beat);
             for(let i = 0; i < this.numSamples; i++) {
                 axios.post('/api/generate', {
-                    midi: base64Encode(this.store.pianorollEditor!.pianoroll.slice(0,this.beat).toMidi().toArray()),
+                    midi: base64Encode(this.store.mainPianoroll!.pianoroll.slice(0,this.beat).toMidi().toArray()),
                     metadata: {
                     }
                 }).then((response) => {
@@ -55,9 +55,9 @@ export default {
         },
         acceptSuggestion(midiData: Uint8Array) {
             console.log("👾AcceptSuggestion", this.beat);
-            this.store.pianorollEditor!.pianoroll.removeSlice(this.beat, this.beat + 4);
-            this.store.pianorollEditor!.pianoroll.overlapWith(new Pianoroll(midiData), this.beat);
-            this.store.pianorollEditor!.render();
+            this.store.mainPianoroll!.pianoroll.removeSlice(this.beat, this.beat + 4);
+            this.store.mainPianoroll!.pianoroll.overlapWith(new Pianoroll(midiData), this.beat);
+            this.store.mainPianoroll!.render();
         }
     },
     components: {

@@ -36,4 +36,13 @@ body {
 h2 {
   margin: 5px;
 }
+
+input[type="text"] {
+    background-color: #040404;
+    color: var(--color-text);
+}
+input[type="number"] {
+    background-color: #040404;
+    color: var(--color-text);
+}
 </style>
