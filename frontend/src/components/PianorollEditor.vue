@@ -87,13 +87,13 @@ export default {
         pianoroll.value.addNote(newNote);
 
         if (newNote.pitch !== this._note.pitch) {
-        piano.stopNote(this._note);
-          piano.playNoteImmediate(newNote.pitch, newNote.velocity);
+          piano.stopNote(this._note);
+            piano.playNoteImmediate(newNote.pitch, newNote.velocity);
+          }
+          emit('edit', [newNote], [this._note]);
+          this._note = newNote;
+          render();
         }
-        emit('edit', [newNote], [this._note]);
-        this._note = newNote;
-        render();
-      }
       public mouseUp(event: MouseEvent): void {
         piano.stopNote(this._note);   
       }
@@ -435,7 +435,6 @@ export default {
   },
   watch: {
     pianoroll(newVal) {
-      console.log(newVal);
       this.render();
     }
   },

@@ -2,8 +2,8 @@ from io import BytesIO
 import traceback
 from fastapi import APIRouter, HTTPException
 
-from ..inference_cake import inference
-from ..models import MidiGenerationRequest
+from ..inference_cake import extract_features, inference
+from ..models import ExtractRequest, MidiGenerationRequest
 import base64
 from music_data_analysis.data import Pianoroll
 
@@ -29,6 +29,17 @@ async def generate_midi(request: MidiGenerationRequest):
         generated_midi = base64.b64encode(buffer.getvalue()).decode()
         
         return {"midi": generated_midi}
+    except Exception as e:
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=str(e))
+    
+@router.post("/extract")
+async def extract(request: ExtractRequest):
+    try:
+        midi_data = base64.b64decode(request.midi)
+        pr = Pianoroll.from_midi_data(BytesIO(midi_data))
+        features = extract_features(pr)
+        return features
     except Exception as e:
         traceback.print_exc()
         raise HTTPException(status_code=500, detail=str(e))

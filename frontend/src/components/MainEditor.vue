@@ -15,8 +15,9 @@
                     <div :style="{marginLeft:shiftX * scaleX+ 'px'}" class="attribute-row-inner">
                         <div v-for="(n, j) in (nBars+8)" :key="j" class="attribute-cell":style="{
                             width:barWidth+'px'}">
+                            <!-- {{attrValues[j]?.[attribute.name]}} -->
                             <component
-                                :is="attribute.component" :min=attribute.min :max=attribute.max
+                                :is="attribute.component" :min=attribute.min :max=attribute.max v-model="attrValues[j][attribute.name]"
                             />
                         </div>
                     </div>
@@ -31,43 +32,104 @@
 
 <script setup lang="ts">
 
-import type { Note } from '@/utils';
+import { base64Encode, Cooldown, CooldownDict, type Note } from '@/utils';
 import AttributeCellNumber from './AttributeCellNumber.vue';
 import AttributeCellText from './AttributeCellText.vue';
 
 import PianorollEditor from './PianorollEditor.vue';
-import { ref } from 'vue';
+import { ref, watch } from 'vue';
+import axios from 'axios';
+
+const MAX_N_BARS = 300;
 
 const pianoroll = ref<InstanceType<typeof PianorollEditor> | null>(null);
 const attributeGridScrollCont = ref<HTMLElement | null>(null);
 const attributeGrid = ref<HTMLElement | null>(null);
+const extractCooldown = new CooldownDict(0.5);
 
 const loadMidiFile = (file: File) => {
-    pianoroll.value?.loadMidiFile(file);
+    pianoroll.value?.loadMidiFile(file).then(() => {
+        // extract attributes for each bar
+        const newNBars = Math.ceil(pianoroll.value!.pianoroll.duration/4);
+        nBars.value = newNBars
+        for (let i = 0; i < nBars.value; i++) {
+            extract(i);
+        }
+    });
+    
+};
+
+const getDefaultAttributeValues = () => {
+    const defaultValues: Record<string, Object> = {};
+    for (const attribute of attributeTypes) {
+        defaultValues[attribute.name] = attribute.type === 'text' ? '' : 0;
+    }
+    return defaultValues;
 };
 
 const attributeTypes = [
-    {name: 'Chord', component: AttributeCellText, type: 'text'},
-    {name: 'Velocity', component: AttributeCellNumber, type: 'number', min: 0, max: 127},
-    {name: 'Density', component: AttributeCellNumber, type: 'number', min: 0, max: 32},
-    {name: 'Polyphony', component: AttributeCellNumber, type: 'number', min: 0, max: 8},
+    {name: 'chord', component: AttributeCellText, type: 'text'},
+    {name: 'velocity', component: AttributeCellNumber, type: 'number', min: 0, max: 127},
+    {name: 'density', component: AttributeCellNumber, type: 'number', min: 0, max: 32},
+    {name: 'polyphony', component: AttributeCellNumber, type: 'number', min: 0, max: 8},
 ];
 
-let barWidth = ref(100);
-let shiftX = ref(0);
-let scaleX = ref(1);
-let nBars = ref(0);
+const barWidth = ref(100);
+const shiftX = ref(0);
+const scaleX = ref(1);
+const nBars = ref(0);
+const attrValues = ref<Record<string, Object>[]>([]);
+
+for (let i = 0; i < MAX_N_BARS; i++) {
+    attrValues.value.push(getDefaultAttributeValues());
+}
+
+const extract = (barIdx:number)=>{
+    const midiData = base64Encode(pianoroll.value!.pianoroll.slice(barIdx*4,(barIdx+1)*4,true).toMidi().toArray());
+    axios.post('/api/extract', {
+        midi: midiData,
+    }).then((response) => {
+        if(barIdx>=nBars.value){ // the pianoroll has been changed
+            return;
+        }
+        const data = response.data;
+        for (const attribute of attributeTypes) {
+            const val = data[attribute.name]
+            if (val!==undefined) {
+                attrValues.value[barIdx][attribute.name] = val[0];
+            }
+        }
+    });
+};
 
 const onTransform = (transform: { shiftX: number; scaleX: number }) => {
-    console.log(transform);
     barWidth.value = 4*transform.scaleX;
     shiftX.value = transform.shiftX;
     scaleX.value = transform.scaleX;
 };
 
 const onEdit = (addedNotes: Note[], removedNotes: Note[]) => {
-    console.log(nBars);
-    nBars.value = pianoroll.value!.pianoroll.duration/4;
+    const oldNBars = nBars.value;
+    nBars.value = Math.min(MAX_N_BARS,Math.ceil(pianoroll.value!.pianoroll.duration/4))
+    for (let i = nBars.value; i < oldNBars; i++) {
+        attrValues.value[i] = getDefaultAttributeValues();
+    }
+    
+    
+    for (let i = nBars.value; i < nBars.value; i++) {
+        attrValues.value[i] = getDefaultAttributeValues();
+    }
+    
+    let modifiedBars = new Set<number>();
+    for (const note of addedNotes) {
+        modifiedBars.add(Math.floor(note.onset/4));
+    }
+    for (const note of removedNotes) {
+        modifiedBars.add(Math.floor(note.onset/4));
+    }
+    for (const barIdx of modifiedBars) {
+        extractCooldown.request(barIdx+'', () => extract(barIdx));
+    }
 };
 
 defineExpose({

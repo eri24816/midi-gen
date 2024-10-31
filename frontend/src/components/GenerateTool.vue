@@ -41,15 +41,16 @@ export default {
                 this.generate();
             }
         },
-        generate() {
+        async generate() {
             console.log("👾Generate", this.beat);
             for(let i = 0; i < this.numSamples; i++) {
-                axios.post('/api/generate', {
+                await axios.post('/api/generate', {
                     midi: base64Encode(this.store.mainPianoroll!.pianoroll.slice(0,this.beat).toMidi().toArray()),
                     metadata: {
                     }
                 }).then((response) => {
                     this.store.suggestionPanel!.addSuggestion(base64Decode(response.data.midi));
+                    this.store.mainPianoroll!.$emit('edit', this.store.mainPianoroll!.pianoroll.getNotesBetween(this.beat, this.beat + 4),[]);
                 });
             }
         },
@@ -57,6 +58,7 @@ export default {
             console.log("👾AcceptSuggestion", this.beat);
             this.store.mainPianoroll!.pianoroll.removeSlice(this.beat, this.beat + 4);
             this.store.mainPianoroll!.pianoroll.overlapWith(new Pianoroll(midiData), this.beat);
+            this.store.mainPianoroll!.$emit('edit', this.store.mainPianoroll!.pianoroll.getNotesBetween(this.beat, this.beat + 4),[]);
             this.store.mainPianoroll!.render();
         }
     },

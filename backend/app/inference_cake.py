@@ -41,6 +41,12 @@ def inference(prompt:Pianoroll, duration:int=32, batch_size:int=1,method:Literal
     
     return pr
 
+def extract_features(pr:Pianoroll):
+    fds = FeatureDataset.from_piano_roll(pr, loaders=model.get_loaders())
+    features = fds.get_human_representation(0,['chord','density','polyphony','velocity'])
+    print(features)
+    fds.delete()
+    return features
 
 print('model loaded')
 

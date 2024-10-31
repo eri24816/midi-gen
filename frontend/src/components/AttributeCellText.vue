@@ -7,8 +7,9 @@
 <script setup lang="ts">
 import { ref, defineExpose } from 'vue';
 // expose value to parent component
+const value = defineModel({default: ''});
 defineExpose({
-    value: ref(''),
+    value,
 });
 
 </script>
