@@ -24,16 +24,16 @@ checkpoint = torch.load(CHECKPOINT_PATH)
 model.load_state_dict(checkpoint['model'])
 model = model.to(device).eval()
 
-def inference(prompt:Pianoroll, duration:int=32, batch_size:int=1,method:Literal['top_k', 'nucleus']='nucleus', p=0.9, top_k:int=15):
+def inference(prompt:Pianoroll, duration:int=32, batch_size:int=1,method:Literal['top_k', 'nucleus']='nucleus', p=0.9, top_k:int=15, conditions:dict|None=None):
     if prompt.duration == 0:
-        generated = model.generate(duration//32, batch_size)
+        generated = model.generate(duration//32, batch_size, given_features = conditions)
         pr = model.indices_to_pianoroll(generated['piano_roll']['indices'])
         return pr
     
     prompt_ds = FeatureDataset.from_piano_roll(prompt, loaders=model.get_loaders())
     print(prompt.duration)
     print(prompt_ds[0]['piano_roll']['indices'].shape)
-    generated = model.generate(prompt.duration//32 + duration //32, batch_size, prompt_ds[0])
+    generated = model.generate(prompt.duration//32 + duration //32, batch_size, prompt_ds[0], given_features = conditions)
     print(generated['piano_roll']['indices'][0][-1].shape, generated['piano_roll']['indices'][0][-1])
     pr = model.indices_to_pianoroll(generated['piano_roll']['indices'][0][-1])
     print(pr.duration)

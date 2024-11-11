@@ -49,9 +49,7 @@ export default defineComponent({
     cursor: pointer;
 }
 
-.tab-switch button:not(.active) {
-    background-color: #303030;
-}
+
 
 .tab-switch button.active {
     font-weight: bold;

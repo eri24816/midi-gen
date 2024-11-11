@@ -15,11 +15,13 @@ async def generate_midi(request: MidiGenerationRequest):
     try:
         # Decode the base64 MIDI file
         midi_data = base64.b64decode(request.midi)
+        conditions = request.conditions
         input_pr = Pianoroll.from_midi_data(BytesIO(midi_data))
         
 
         print('input_pr:', input_pr.duration, len(input_pr.notes))
-        pr = inference(duration=32, prompt=input_pr)
+        print('conditions:', conditions)
+        pr = inference(duration=32, prompt=input_pr, conditions=conditions)
         
 
         buffer = BytesIO()

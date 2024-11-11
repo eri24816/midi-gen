@@ -439,7 +439,7 @@ export default {
                     let oldCursorPosition = cursorPosition;
                     cursorPosition += 0.125; // granularity of 1/8 beat
                     if (cursorPosition > pianoroll.value.duration) {
-                        cursorPosition = -0.125;
+                        cursorPosition = -0.5;
                         recalculateSongStartTime();
                         piano.stop();
                     }

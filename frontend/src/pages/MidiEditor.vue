@@ -12,7 +12,7 @@
                     class="main-editor"
                     ref="mainEditor"
                 />
-                <ToolBox />
+                <!-- <ToolBox /> -->
             </div>
             <SuggestionPanel class="right-panel" ref="suggestionPanel" />
         </div>

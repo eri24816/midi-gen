@@ -11,13 +11,28 @@
         <!-- a 2d grid of celss -->
         <div class="attribute-grid-scroll-cont" ref="attributeGridScrollCont">
             <div class="attribute-grid" ref="attributeGrid">
+                <div class="attribute-row">
+                    <div :style="{marginLeft:shiftX * scaleX+ 'px'}" class="attribute-row-inner">
+                        <div v-for="(n, j) in (nBars+8)" :key="j" class="attribute-cell":style="{
+                            width:barWidth+'px'}">
+                            <button class="generate-button" @click="generate(j, 4)">👾✏️</button> 
+                        </div>
+                    </div>
+                    <div class="attribute-header">
+                        generate
+                    </div>
+                </div>
+
                 <div v-for="(attribute,i) in attributeTypes" :key="i" class="attribute-row">
                     <div :style="{marginLeft:shiftX * scaleX+ 'px'}" class="attribute-row-inner">
                         <div v-for="(n, j) in (nBars+8)" :key="j" class="attribute-cell":style="{
                             width:barWidth+'px'}">
                             <!-- {{attrValues[j]?.[attribute.name]}} -->
                             <component
-                                :is="attribute.component" :min=attribute.min :max=attribute.max v-model="attrValues[j][attribute.name]"
+                                :is="attribute.component" :min=attribute.min :max=attribute.max 
+                                v-model:realValue="attrRealValues[j][attribute.name]"
+                                v-model:userValue="attrUserValues[j][attribute.name]"
+                                v-model:isDetermined="attrIsDetermined[j][attribute.name]"
                             />
                         </div>
                     </div>
@@ -32,13 +47,14 @@
 
 <script setup lang="ts">
 
-import { base64Encode, Cooldown, CooldownDict, type Note } from '@/utils';
+import { base64Decode, base64Encode, Cooldown, CooldownDict, Pianoroll, type Note } from '@/utils';
 import AttributeCellNumber from './AttributeCellNumber.vue';
 import AttributeCellText from './AttributeCellText.vue';
 
 import PianorollEditor from './PianorollEditor.vue';
 import { ref, watch } from 'vue';
 import axios from 'axios';
+import { useStore } from '@/stores/counter';
 
 const MAX_N_BARS = 300;
 
@@ -74,15 +90,58 @@ const attributeTypes = [
     {name: 'polyphony', component: AttributeCellNumber, type: 'number', min: 0, max: 8},
 ];
 
+const store = useStore();
+
 const barWidth = ref(100);
 const shiftX = ref(0);
 const scaleX = ref(1);
 const nBars = ref(0);
-const attrValues = ref<Record<string, Object>[]>([]);
+
+let curBar = 0
+
+// collects all model values for each cell
+const attrRealValues = ref<Record<string, any>[]>([]);
+const attrUserValues = ref<Record<string, any>[]>([]);
+const attrIsDetermined = ref<Record<string, boolean>[]>([]);
 
 for (let i = 0; i < MAX_N_BARS; i++) {
-    attrValues.value.push(getDefaultAttributeValues());
+    attrRealValues.value.push(getDefaultAttributeValues());
+    attrUserValues.value.push(getDefaultAttributeValues());
+    attrIsDetermined.value.push(Object.fromEntries(attributeTypes.map(attr => [attr.name, false])));
 }
+
+const generate = async (bar: number, numSamples: number) => {
+    curBar = bar;
+    store.suggestionPanel!.reset();
+
+    const conditions: Record<string, any> = {};
+    for (const attribute of attributeTypes) {
+        if(attrIsDetermined.value[bar][attribute.name]){
+            conditions[attribute.name] = attrUserValues.value[bar][attribute.name];
+        }
+    }
+
+    console.log("👾Generate", bar, conditions);
+
+    for(let i = 0; i < numSamples; i++) {
+        await axios.post('/api/generate', {
+            midi: base64Encode(pianoroll.value!.pianoroll.slice(0,bar*4).toMidi().toArray()),
+            conditions
+        }).then((response) => {
+            store.suggestionPanel!.addSuggestion(base64Decode(response.data.midi));
+        });
+        
+    }
+}
+
+const acceptSuggestion = (midiData: Uint8Array) => {
+    pianoroll.value!.pianoroll.removeSlice(curBar*4, (curBar+1)*4);
+    pianoroll.value!.pianoroll.overlapWith(new Pianoroll(midiData), curBar*4);
+    pianoroll.value!.$emit('edit', pianoroll.value!.pianoroll.getNotesBetween(curBar*4, (curBar+1)*4),[]);
+    pianoroll.value!.render();
+}
+
+store.acceptSuggestionCallback = acceptSuggestion;
 
 const extract = (barIdx:number)=>{
     const midiData = base64Encode(pianoroll.value!.pianoroll.slice(barIdx*4,(barIdx+1)*4,true).toMidi().toArray());
@@ -96,7 +155,7 @@ const extract = (barIdx:number)=>{
         for (const attribute of attributeTypes) {
             const val = data[attribute.name]
             if (val!==undefined) {
-                attrValues.value[barIdx][attribute.name] = val[0];
+                attrRealValues.value[barIdx][attribute.name] = val[0];
             }
         }
     });
@@ -112,12 +171,12 @@ const onEdit = (addedNotes: Note[], removedNotes: Note[]) => {
     const oldNBars = nBars.value;
     nBars.value = Math.min(MAX_N_BARS,Math.ceil(pianoroll.value!.pianoroll.duration/4))
     for (let i = nBars.value; i < oldNBars; i++) {
-        attrValues.value[i] = getDefaultAttributeValues();
+        attrRealValues.value[i] = getDefaultAttributeValues();
     }
     
     
     for (let i = nBars.value; i < nBars.value; i++) {
-        attrValues.value[i] = getDefaultAttributeValues();
+        attrRealValues.value[i] = getDefaultAttributeValues();
     }
     
     let modifiedBars = new Set<number>();
@@ -155,7 +214,7 @@ defineExpose({
         flex-grow: 1;
     }
     .attribute-grid-scroll-cont {
-        height: 200px;
+        height: 300px;
         bottom: 0;
         position: relative;
         overflow-x: hidden;
@@ -167,7 +226,6 @@ defineExpose({
         position: absolute;
         display: flex;
         flex-direction: column;
-        gap: 5px;
     }
     .attribute-row {
         display: flex;
@@ -187,11 +245,23 @@ defineExpose({
     }
     .attribute-header {
         position: absolute;
-        left: 10px;
-        width: 70px;
+        left: 0px;
+        width: 100px;
+        padding-left: 10px;
+        padding-right: 10px;
         text-align: right;
         top: auto;
         bottom:auto;
         line-height: 40px;
+        background-color: #1e1e1e;
+        border-right: 1px solid white;
+        font-weight: bold;
+    }
+    .generate-button{
+        width: calc(100% - 2px);
+        height: calc(100% - 2px);
+        margin: 1px;
+        border: outset 1px #1e1e1e;
+        font-size: 16px;
     }
 </style>

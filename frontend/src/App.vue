@@ -45,4 +45,16 @@ input[type="number"] {
     background-color: #040404;
     color: var(--color-text);
 }
+button{
+    background-color: #303030;
+    color: white;
+    border: none;
+    
+}
+button:hover{
+    background-color: #404040;
+}
+button:active{
+    background-color: #1e262d;
+}
 </style>

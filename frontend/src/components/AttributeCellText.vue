@@ -1,15 +1,23 @@
 <template>
-    <div class="attribute-cell">
-        <input type="text" v-model="value" />
+    <div class="attribute-cell" ref="el">
+        <input type="text" v-model="userValue" />
     </div>
 </template>
 
 <script setup lang="ts">
 import { ref, defineExpose } from 'vue';
-// expose value to parent component
-const value = defineModel({default: ''});
+import { useAttributeCellLogic } from './AttributeCellLogic';
+
+const el = ref<HTMLElement | null>(null);
+const realValue = defineModel<string>('realValue', {default: ''});
+const userValue = defineModel<string>('userValue', {default: ''});
+const isDetermined = defineModel<boolean>('isDetermined', {default: false});
+const {} = useAttributeCellLogic<string>(el, realValue, userValue, isDetermined);
+
 defineExpose({
-    value,
+    realValue,
+    userValue,
+    isDetermined,
 });
 
 </script>
@@ -20,6 +28,10 @@ defineExpose({
         display: flex;
         justify-content: center;
         align-items: center;
+        background-color: #1e1e1e;
+    }
+    .attribute-cell.determined {
+        background-color: #fff20027;
     }
     input {
         width: 100%;
@@ -28,6 +40,6 @@ defineExpose({
         align-items: center;
         text-align: center;
         border: none;
-        background-color: #0e0e0e;
+        background-color: transparent;
     }
 </style>

@@ -1,12 +1,14 @@
 <template>
-    <div class="attribute-cell">
-        <input type="number" v-model="value" class="input" ref = "input" @wheel="onWheel"/>
+    <div class="attribute-cell" ref="el">
+        <input type="number" v-model="userValue" class="input" ref = "input" @wheel.prevent="onWheel"/>
+        <div class="overlay"></div>
     </div>
 </template>
 
 <script setup lang="ts">
 
 import { onMounted, ref, watch } from 'vue';
+import { useAttributeCellLogic } from './AttributeCellLogic';
 
 
 let {min, max} = defineProps({
@@ -20,32 +22,48 @@ let {min, max} = defineProps({
     },
 });
 
-const value = defineModel({default: 0});
 const input = ref<HTMLInputElement | null>(null);
+const el = ref<HTMLElement | null>(null);
+
+const realValue = defineModel<number>('realValue', {default: 0});
+const userValue = defineModel<number>('userValue', {default: 0});
+const isDetermined = defineModel<boolean>('isDetermined', {default: false});
+const {} = useAttributeCellLogic<number>(el, realValue, userValue, isDetermined);
 
 const onWheel = (event: WheelEvent) => {
-    value.value = Math.min(max, Math.max(min, value.value - event.deltaY/100));
+    userValue.value = Math.min(max, Math.max(min, userValue.value - event.deltaY/100));
 }
 
 const valueUpdated = (newValue:number) => {
-
-    value.value = Math.round(value.value);
-    input.value!.style.background = `linear-gradient(to top, #0e0e0e ${100*(value.value-min)/(max-min)}%, #1e1e1e ${100*(value.value-min)/(max-min)}%)`;
+    userValue.value = Math.round(userValue.value);
+    input.value!.style.background = `linear-gradient(to top, #0e0e0e ${100*(userValue.value-min)/(max-min)}%, #1e1e1e ${100*(userValue.value-min)/(max-min)}%)`;
 }
 
-watch(value, valueUpdated);
+watch(userValue, valueUpdated);
 
 onMounted(() => {
-    valueUpdated(value.value);
+    valueUpdated(userValue.value);
 });
 
 defineExpose({
-    value,
+    isDetermined,
 });
 
 </script>
 
 <style scoped>
+    .overlay {
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background-color: #fff20000;
+        pointer-events: none;
+    }
+    .attribute-cell.determined .overlay {
+        background-color: #fff20027;
+    }
     .attribute-cell {
         position: relative;
         display: flex;
@@ -74,5 +92,9 @@ defineExpose({
     /* Firefox */
     input[type=number] {
       -moz-appearance: textfield;
+    }
+
+    input:focus {
+        outline: none;
     }
 </style>

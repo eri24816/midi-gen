@@ -53,7 +53,7 @@ export default defineComponent({
             this.lastAccepted = -1;
         },
         addSuggestion(midiData: Uint8Array) {
-            const cardId = Math.random();
+            const cardId = this.midiDataList.size;
             this.midiDataList.set(cardId, midiData);
             if(this.midiDataList.size == 1){
                 this.handleAccept(cardId);
