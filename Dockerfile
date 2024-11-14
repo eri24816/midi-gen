@@ -15,4 +15,6 @@ WORKDIR /testapp
 
 COPY . .
 
+RUN chmod +x entry.sh
+
 CMD ["./entry.sh"]
