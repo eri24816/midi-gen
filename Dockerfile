@@ -17,4 +17,4 @@ COPY testapp/ .
 
 RUN chmod +x entry.sh
 
-CMD ["./entry.sh"]
+ENTRYPOINT ["./entry.sh"]

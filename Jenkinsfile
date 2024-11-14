@@ -18,7 +18,7 @@ pipeline {
                     sh 'docker ps -qa --filter "name=midi-gen" | grep -q . && docker stop midi-gen && docker rm midi-gen || true'
                     
                     // Run new container
-                    sh 'docker run -d --rm --name midi-gen -p 8010:8010 midi-gen' 
+                    sh 'docker run -d --name midi-gen -p 8010:8010 midi-gen' 
                 }
             }
         }
