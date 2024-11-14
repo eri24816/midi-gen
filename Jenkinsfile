@@ -12,7 +12,7 @@ pipeline {
         }
 
         stage('Run') {
-            steps {
+            steps { 
                 script {
                     // Stop existing container if running
                     sh 'docker ps -qa --filter "name=midi-gen" | grep -q . && docker stop midi-gen && docker rm midi-gen || true'
