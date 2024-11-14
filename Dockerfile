@@ -11,9 +11,9 @@ FROM python:3.11
 
 # CMD ["uvicorn", "backend.app.main:app"]
 
-WORKDIR /testapp
+WORKDIR /app
 
-COPY . .
+COPY testapp/ .
 
 RUN chmod +x entry.sh
 
