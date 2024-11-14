@@ -26,6 +26,7 @@ import { now } from "tone";
 import { piano } from "@/piano";
 
 interface DragBehavior {
+    mouseDown(event: MouseEvent): void;
     mouseMove(event: MouseEvent): void;
     mouseUp(event: MouseEvent): void;
 }
@@ -98,6 +99,8 @@ export default {
                     emit("edit", [this._note], []);
                 }
                 piano.playNoteImmediate(this._note.pitch, this._note.velocity);
+            }
+            mouseDown(event: MouseEvent) {
                 render();
             }
             public mouseMove(event: MouseEvent): void {
@@ -123,7 +126,7 @@ export default {
         }
 
         class RemoveNoteDragBehavior implements DragBehavior {
-            constructor(event: MouseEvent) {
+            mouseDown(event: MouseEvent) {
                 const noteUnderPointer = pianoroll.value.getNoteAt(
                     screenToBeat(event.clientX),
                     screenToPitch(event.clientY),
@@ -149,6 +152,7 @@ export default {
         }
 
         class CursorDragBehavior implements DragBehavior {
+            public mouseDown(event: MouseEvent): void {}
             public mouseMove(event: MouseEvent): void {
                 cursorPosition = Math.max(-2, screenToBeat(event.clientX));
                 recalculateSongStartTime();
@@ -396,11 +400,12 @@ export default {
                     dragBehavior = new MoveNoteDragBehavior(event);
                 }
             } else if (event.buttons === 2 && props.editable) {
-                dragBehavior = new RemoveNoteDragBehavior(event);
+                dragBehavior = new RemoveNoteDragBehavior();
             }
 
             document.addEventListener("mousemove", handleMouseMove);
             document.addEventListener("mouseup", handleMouseUp);
+            dragBehavior?.mouseDown(event);
         };
 
         const handleMouseMove = (event: MouseEvent): void => {

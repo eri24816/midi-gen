@@ -52,7 +52,7 @@ export class Note {
  * Only contains onsets of notes and their duration, pitch, and velocity.
  */
 export class Pianoroll {
-    private onsets: Note[];
+    private notes: Note[];
     bps: number;
     private midiData: ArrayBuffer | null = null;
     private _duration: number = 0;
@@ -62,7 +62,7 @@ export class Pianoroll {
 
     constructor(midiData: ArrayBuffer | Uint8Array | null = null) {
         if (!midiData) {
-            this.onsets = [];
+            this.notes = [];
             this.bps = 120 / 60;
             return;
         }
@@ -70,7 +70,7 @@ export class Pianoroll {
 
         const midi = new Midi(midiData);
         this.bps = getBps(midi);
-        this.onsets = midi.tracks[0].notes.map(
+        this.notes = midi.tracks[0].notes.map(
             (note) =>
                 new Note(
                     note.time * this.bps,
@@ -93,7 +93,7 @@ export class Pianoroll {
         const ticksPerSecond = midi.header.secondsToTicks(1);
         this.bps = getBps(midi);
 
-        for (const note of this.onsets) {
+        for (const note of this.notes) {
             // Do not use time/duration in the addNote function. It incorrectly calculates the ticks.
             midi.tracks[0].addNote({
                 ticks: (note.onset / this.bps) * ticksPerSecond,
@@ -112,14 +112,14 @@ export class Pianoroll {
      * @returns {Note[]} An array of notes that are between the start and end beats.
      */
     getNotesBetween(start: number, end: number): Note[] {
-        return this.onsets.filter(
+        return this.notes.filter(
             (note) => note.onset < end && note.onset + note.duration >= start,
         );
     }
 
     getNoteAt(beat: number, pitch: number): Note | null {
         const tmp =
-            this.onsets.find(
+            this.notes.find(
                 (note) =>
                     note.onset < beat &&
                     note.onset + note.duration > beat &&
@@ -139,23 +139,23 @@ export class Pianoroll {
      * @returns {Note[]} An array of notes that start between the start and end beats.
      */
     getNotesOnsetBetween(start: number, end: number): Note[] {
-        return this.onsets.filter(
+        return this.notes.filter(
             (note) => note.onset < end && note.onset >= start,
         );
     }
 
     addNote(note: Note) {
-        this.onsets.push(note);
+        this.notes.push(note);
         this._duration = Math.max(this._duration, note.onset + note.duration);
     }
 
     removeNote(note: Note) {
-        this.onsets = this.onsets.filter((n) => !n.equals(note));
+        this.notes = this.notes.filter((n) => !n.equals(note));
         this.recalculateDuration();
     }
 
     overlapWith(other: Pianoroll, shift: number = 0): void {
-        for (const note of other.onsets) {
+        for (const note of other.notes) {
             this.addNote(
                 new Note(
                     note.onset + shift,
@@ -171,11 +171,11 @@ export class Pianoroll {
         start -= 0.001;
         end -= 0.001;
         const sliced = new Pianoroll();
-        sliced.onsets = this.onsets.filter(
+        sliced.notes = this.notes.filter(
             (note) => note.onset >= start && note.onset <= end,
         );
         // clone the notes
-        sliced.onsets = sliced.onsets.map((note) => {
+        sliced.notes = sliced.notes.map((note) => {
             return new Note(
                 shift ? note.onset - start : note.onset,
                 note.duration,
@@ -191,18 +191,18 @@ export class Pianoroll {
     removeSlice(start: number, end: number): void {
         start -= 0.001;
         end -= 0.001;
-        this.onsets = this.onsets.filter(
+        this.notes = this.notes.filter(
             (note) => note.onset <= start || note.onset >= end,
         );
         this.recalculateDuration();
     }
 
     recalculateDuration(): void {
-        if (this.onsets.length === 0) {
+        if (this.notes.length === 0) {
             this._duration = 0;
         } else
             this._duration = Math.max(
-                ...this.onsets.map((note) => note.onset + note.duration),
+                ...this.notes.map((note) => note.onset + note.duration),
             );
     }
 }
