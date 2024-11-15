@@ -30,7 +30,7 @@ WORKDIR /app
 
 COPY --from=frontend-builder /frontend/dist ./static
 
-CMD ["uvicorn", "backend.app.main:app"]
+CMD ["uvicorn", "backend.app.main:app", "--host", "0.0.0.0", "--port", "8010"]
 
 # WORKDIR /app
 
