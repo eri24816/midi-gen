@@ -1,5 +1,6 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
 from .routes import midi
 
 app = FastAPI()
@@ -13,9 +14,9 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+midi_api = FastAPI()
 # Include routes
-app.include_router(midi.router)
+midi_api.include_router(midi.router)
 
-@app.get("/")
-async def root():
-    return {"message": "Welcome to the MIDI Next Bar Generator API"}
+app.mount("/api", midi_api)
+app.mount("/", StaticFiles(directory="static", html=True), name="frontend")

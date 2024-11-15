@@ -1,6 +1,6 @@
 import { AutoKeyupPiano } from '@/utils'
 import { Piano } from '@tonejs/piano'
-import { Tone } from '@tonejs/tone'
+// import { Tone } from '@tonejs/tone'
 
 export const piano = new AutoKeyupPiano(new Piano({
     velocities: 5,
@@ -12,4 +12,4 @@ export const piano = new AutoKeyupPiano(new Piano({
     }
 }))
 
-piano.piano.chain(Tone)
+// piano.piano.chain(Tone)

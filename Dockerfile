@@ -1,20 +1,41 @@
 # for backend, pip install -r requirements.txt and uvicorn backend.app.main:app
 # for frontend, cd frontend && npm install && npm run dev
-FROM python:3.11
 
-# WORKDIR /app
+FROM node:22-alpine as frontend-builder
+WORKDIR /frontend
 
-# COPY requirements.txt .
-# RUN pip install -r requirements.txt
+COPY frontend/package.json frontend/package-lock.json ./
 
-# COPY . .
+RUN echo $NODE_ENV
+RUN npm config set loglevel info
+RUN npm install --verbose
+COPY frontend/ .
+RUN npm run build-only
 
-# CMD ["uvicorn", "backend.app.main:app"]
+
+FROM pytorch/pytorch:2.5.1-cuda12.4-cudnn9-runtime
+
+WORKDIR /app/backend
+
+RUN apt-get update && \
+    apt-get upgrade -y && \
+    apt-get install -y git
+
+COPY backend/pyproject.toml .
+RUN pip install -e .
+
+COPY backend/ .
 
 WORKDIR /app
 
-COPY testapp/ .
+COPY --from=frontend-builder /frontend/dist ./static
 
-RUN chmod +x entry.sh
+CMD ["uvicorn", "backend.app.main:app"]
 
-ENTRYPOINT ["./entry.sh"]
+# WORKDIR /app
+
+# COPY testapp/ .
+
+# RUN chmod +x entry.sh
+
+# ENTRYPOINT ["./entry.sh"]
