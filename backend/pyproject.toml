@@ -6,7 +6,7 @@ dependencies = [
     "uvicorn>=0.15.0",
     "pydantic>=2.8.0",
     "python-dotenv>=1.0.1",
-    "pianogen @ git+https://github.com/eri24816/piano-music-gen.git"
+    "pianogen @ git+https://github.com/eri24816/piano-music-gen.git" 
 
 ]
 
