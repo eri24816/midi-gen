@@ -1,6 +1,6 @@
 # Midi Generator
 
-website: http://midi-gen.screamviola.csie.ncku.edu.tw/
+website: http://midi.eri24816.tw/
 
 ## Overview
 

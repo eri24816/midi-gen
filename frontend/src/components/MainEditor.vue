@@ -15,7 +15,7 @@
                     <div :style="{marginLeft:shiftX * scaleX+ 'px'}" class="attribute-row-inner">
                         <div v-for="(n, j) in (nBars+8)" :key="j" class="attribute-cell":style="{
                             width:barWidth+'px'}">
-                            <button class="generate-button" @click="generate(j, 4)">👾✏️</button> 
+                            <button class="generate-button" @click="generate(j, 4, true)">👾✏️</button> 
                         </div>
                     </div>
                     <div class="attribute-header">
@@ -33,6 +33,7 @@
                                 v-model:realValue="attrRealValues[j][attribute.name]"
                                 v-model:userValue="attrUserValues[j][attribute.name]"
                                 v-model:isDetermined="attrIsDetermined[j][attribute.name]"
+                                :validator="attribute.validator"
                             />
                         </div>
                     </div>
@@ -84,7 +85,7 @@ const getDefaultAttributeValues = () => {
 };
 
 const attributeTypes = [
-    {name: 'chord', component: AttributeCellText, type: 'text'},
+    {name: 'chord', component: AttributeCellText, type: 'text', validator: (value: string) => /^([A-Ga-g][#b]?(M|m|o|\+|7|M7|m7|o7|\/o7|sus2|sus4)? ){0,3}[A-Ga-g][#b]?(M|m|o|\+|7|M7|m7|o7|\/o7|sus2|sus4)?$/.test(value)},
     {name: 'velocity', component: AttributeCellNumber, type: 'number', min: 0, max: 127},
     {name: 'density', component: AttributeCellNumber, type: 'number', min: 0, max: 32},
     {name: 'polyphony', component: AttributeCellNumber, type: 'number', min: 0, max: 8},
@@ -96,6 +97,8 @@ const barWidth = ref(100);
 const shiftX = ref(0);
 const scaleX = ref(1);
 const nBars = ref(0);
+
+let currentGenerationId = 0;
 
 let curBar = 0
 
@@ -110,29 +113,43 @@ for (let i = 0; i < MAX_N_BARS; i++) {
     attrIsDetermined.value.push(Object.fromEntries(attributeTypes.map(attr => [attr.name, false])));
 }
 
-const generate = async (bar: number, numSamples: number) => {
-    curBar = bar;
-    store.suggestionPanel!.reset();
+const generate = async (bar: number=-1, numSamples: number=4, resetSuggestions: boolean=false) => {
+    if(bar !== -1){
+        curBar = bar;
+    }
+
+    if(resetSuggestions){
+        store.suggestionPanel!.reset();
+    }
 
     const conditions: Record<string, any> = {};
     for (const attribute of attributeTypes) {
-        if(attrIsDetermined.value[bar][attribute.name]){
-            conditions[attribute.name] = attrUserValues.value[bar][attribute.name];
+        if(attrIsDetermined.value[curBar][attribute.name]){
+            conditions[attribute.name] = attrUserValues.value[curBar][attribute.name];
         }
     }
 
-    console.log("👾Generate", bar, conditions);
+    console.log("👾Generate", curBar, conditions);
+
+    currentGenerationId++;
+    const localGenerationId = currentGenerationId;
 
     for(let i = 0; i < numSamples; i++) {
+        if(localGenerationId !== currentGenerationId){
+            return;
+        }
         await axios.post('/api/generate', {
-            midi: base64Encode(pianoroll.value!.pianoroll.slice(0,bar*4).toMidi().toArray()),
+            midi: base64Encode(pianoroll.value!.pianoroll.slice(0,curBar*4).toMidi().toArray()),
             conditions
         }).then((response) => {
-            store.suggestionPanel!.addSuggestion(base64Decode(response.data.midi));
+            if(localGenerationId === currentGenerationId){
+                store.suggestionPanel!.addSuggestion(base64Decode(response.data.midi));
+            }
         });
-        
     }
 }
+
+store.generateCallback = generate;
 
 const acceptSuggestion = (midiData: Uint8Array) => {
     pianoroll.value!.pianoroll.removeSlice(curBar*4, (curBar+1)*4);

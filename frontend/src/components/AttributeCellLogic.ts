@@ -8,10 +8,13 @@ function watchIgnorable<T, Immediate extends Readonly<boolean> = false>(source: 
         unwatch: WatchHandle,
         ignoreUpdates: (updater: () => void) => void,
     } {
-    let ignoreNext = false;
+    let ignoreNext = 0;
     const cbWrapper = (value: T, oldValue: MaybeUndefined<T, Immediate>, onCleanup: OnCleanup) => {
+
         if (ignoreNext) {
-            ignoreNext = false;
+
+            ignoreNext -= 1;
+
             return;
         }
         cb(value, oldValue, onCleanup);
@@ -20,13 +23,13 @@ function watchIgnorable<T, Immediate extends Readonly<boolean> = false>(source: 
     return {
         unwatch:unwatch,
         ignoreUpdates: (updater: () => void) => {
-            ignoreNext = true;
+            ignoreNext += 1;
             updater();
         }
     };
 }
 
-export function useAttributeCellLogic<T>(el: Ref<HTMLElement | null>, realValue: Ref<T>, userValue: Ref<T>, isDetermined: Ref<boolean>) {
+export function useAttributeCellLogic<T>(el: Ref<HTMLElement | null>, realValue: Ref<T>, userValue: Ref<T>, isDetermined: Ref<boolean>, validator: (value: T) => boolean = (value: T) => true) {
     onMounted(() => {
     // right click to toggle
         el.value!.addEventListener('contextmenu', (event: MouseEvent) => {
@@ -37,15 +40,23 @@ export function useAttributeCellLogic<T>(el: Ref<HTMLElement | null>, realValue:
 
     watch(isDetermined, (newValue: boolean) => {
         el.value!.classList.toggle('determined', newValue);
-        if (!newValue) {
+        if (!newValue && userValue.value !== realValue.value) {
             ignoreUpdates(() => {
                 userValue.value = realValue.value;
             });
         }
     });
 
-    const { unwatch, ignoreUpdates } = watchIgnorable(userValue, () => {
-        isDetermined.value = true;
+    const { unwatch, ignoreUpdates } = watchIgnorable(userValue, (newValue: T, oldValue: T) => {
+        console.log(oldValue, newValue, validator(newValue));
+        if(!validator(newValue)){
+            ignoreUpdates(() => {
+                userValue.value = oldValue;
+            });
+        }
+        else{
+            isDetermined.value = true;
+        }
     });
 
     watch(realValue, () => {

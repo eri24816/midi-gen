@@ -1,6 +1,6 @@
 <template>
     <div class="attribute-cell" ref="el">
-        <input type="text" v-model="userValue" />
+        <input type="text" v-model.lazy="userValue"/>
     </div>
 </template>
 
@@ -12,7 +12,11 @@ const el = ref<HTMLElement | null>(null);
 const realValue = defineModel<string>('realValue', {default: ''});
 const userValue = defineModel<string>('userValue', {default: ''});
 const isDetermined = defineModel<boolean>('isDetermined', {default: false});
-const {} = useAttributeCellLogic<string>(el, realValue, userValue, isDetermined);
+const {validator} = defineProps<{
+    validator: (value: string) => boolean;
+}>();
+const {} = useAttributeCellLogic<string>(el, realValue, userValue, isDetermined, validator);
+
 
 defineExpose({
     realValue,
