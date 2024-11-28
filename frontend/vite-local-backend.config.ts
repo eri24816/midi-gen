@@ -18,7 +18,7 @@ export default defineConfig({
   server: {
     proxy: {
       '/api': {
-        target: 'http://midi.eri24816.tw/',
+        target: 'http://localhost:8000',
         changeOrigin: true,
       }
     }

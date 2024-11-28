@@ -2,9 +2,11 @@
 
 website: http://midi.eri24816.tw/
 
-## Overview
 
-The Midi Generator is a web application that allows users to generate symbolic music based on a given prompt and desired musical attributes. An piano roll editor is provided for users to setup the prompt, refine the generated music, and listen to the generated music.
+A web app that allows you to create your own music. Ask AI for help whenever you need.
+
+
+![Image](https://i.imgur.com/NPsGTeL.png)
 
 ## Features
 
@@ -23,17 +25,9 @@ Usage:
 - Play the music and listen to the generated music.
 - Load or save the music as a midi file.
 
-## Run Locally
+## Develop Frontend
 
-Requires CUDA, Python >= 3.11, node.js >= 22.
-
-### Development
-
-```bash
-cd backend
-pip install -e .
-uvicorn app.main:app --reload
-```
+Requires node.js >= 22.
 
 ```bash
 cd frontend
@@ -41,9 +35,37 @@ npm install
 npm run dev
 ```
 
-### Docker
+The dev server will proxy the `/api` requests to the deployed backend (http://midi.eri24816.tw/api), so you don't need to run the backend server locally.
 
-Note that the docker image will be huge (~6GB) because the dependencies of cuda and pytorch are huge.
+## Develop Backend (the AI model)
+
+Requires CUDA, Python >= 3.11, 
+
+If you want to run the backend (the AI model) locally, follow these steps:
+
+1. Download the checkpoint file from [here](https://drive.google.com/drive/folders/1319U0Bauntrv5aUrQjSgQ2b6goeJeAOD?usp=sharing).
+
+2. Set the `CHECKPOINT_PATH` environment variable to the path to the checkpoint file. Optionally, you can create `backend/app/.env` and put the following line in it:
+
+```
+CHECKPOINT_PATH=<path-to-checkpoint>
+```
+
+3. Run the backend server:
+```bash
+cd backend
+pip install -e .
+uvicorn app.main:app --reload
+```
+
+4. Run the frontend dev server:
+```bash
+cd frontend
+npm install
+npm run dev-local
+```
+
+## Docker
 
 ```bash
 docker build -t midi-gen .
@@ -51,3 +73,5 @@ docker run --name midi-gen -e CHECKPOINT_PATH=/volume/checkpoint.pt -v <path-to-
 ```
 
 Where `<path-to-volume>` is the path to a volume directory that contains the checkpoint file `checkpoint.pt`.
+
+Note that the docker image will be huge (~6GB) because the dependencies of cuda and pytorch are huge.
