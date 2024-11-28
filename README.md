@@ -1,4 +1,4 @@
-# Midi Generator
+# Music Generator
 
 website: http://midi.eri24816.tw/
 
