@@ -1,12 +1,16 @@
 # Music Generator
 
-website: http://midi.eri24816.tw/
-
-
 A web app that allows you to create your own music. Ask AI for help whenever you need.
 
 
 ![Image](https://i.imgur.com/NPsGTeL.png)
+
+![Static Badge](https://img.shields.io/badge/Vue3-359369) 
+![Static Badge](https://img.shields.io/badge/TypeScript-27609e)
+![Static Badge](https://img.shields.io/badge/PR-welcome-blue)
+![Static Badge](https://img.shields.io/badge/website-http%3A%2F%2Fmidi.eri24816.tw%2F-orange)
+
+
 
 ## Features
 
