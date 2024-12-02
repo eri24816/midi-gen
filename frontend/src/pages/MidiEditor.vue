@@ -3,37 +3,17 @@
 
         <div class="panels">
             <SideBar class="left-sidebar">
-                <div class="left-sidebar-intro">
-                    <h1>Music Generator</h1>
-                    <p><b>Create your own music. Ask AI for help whenever you need.</b></p>
-                    <p>
-                        Left click to add notes. Right click to remove notes. Click [play] to play the music.
-                    </p>
-                    <p>
-                        Under the editor is the attribute panel. Click [generate] to let AI generate music for the bar.
-                        Set the attributes before clicking [generate] to control the AI's output.
-                    </p>
-                    <p>
-                        When an attribute is yellow, it means it is controlled by the user. Right click on it to unset it.
-                    </p>
-                    <hr>
-                    <h2>Import MIDI File </h2>
-                    <p>
-                    
-                    <input
-                        type="file"
-                        accept=".mid,.midi"
-                        @change="handleFileInput"
-                        ref="fileInput"
-                    />
-                    </p>
-                    <hr>
-                    <h2>How does it work?</h2>
-                    <p>
-                        To generate the current bar, the AI takes the notes you (or the AI itself) have composed in the previous 15 bars as context. It also takes the attributes you have set as control.
-                        If some attributes are not set, the AI will decide their values.
-                    </p>
-                </div>
+                <TabSwitch class="left-sidebar-switch" :tabs="[{title:'Intro', name:'intro'}, {title:'File', name:'file'}]">
+                    <template #intro>
+                        <h1>Music Generator</h1>
+                        <IntroComp />
+                    </template>
+                    <template #file>
+                        <FileTab @load="loadMidi" @save="saveMidi" @useTemplate="useTemplate" />
+                    </template>
+                </TabSwitch>
+
+
                 <button class="github-btn" onclick="window.open('https://github.com/eri24816/midi-gen', '_blank')">Learn more on GitHub</button>
             </SideBar>
             <div class="left-panel">
@@ -49,8 +29,8 @@
     </div>
 </template>
 
-<script lang="ts">
-import { ref, defineComponent } from "vue";
+<script setup lang="ts">
+import { ref, defineComponent, onMounted } from "vue";
 import PianorollEditor from "@/components/PianorollEditor.vue";
 import MyButton from "@/components/MyButton.vue";
 import ToolBox from "@/components/ToolBox.vue";
@@ -60,52 +40,39 @@ import { useStore } from "@/stores/counter";
 import { Pianoroll } from "@/utils";
 import MainEditor from "@/components/MainEditor.vue";
 import SideBar from "@/components/SideBar.vue";
-export default defineComponent({
-    name: "MidiEditor",
-    components: {
-        PianorollEditor,
-        MyButton,
-        SuggestionPanel,
-        ToolBox,
-        MainEditor,
-        SideBar,
-    },
-    setup() {
-        const store = useStore();
-        const mainEditor = ref<InstanceType<typeof MainEditor> | null>(null);
-        const suggestionPanel = ref<InstanceType<
-            typeof SuggestionPanel
-        > | null>(null);
-        const fileInput = ref<HTMLInputElement | null>(null);
-        const handleFileInput = (event: Event) => {
-            const target = event.target as HTMLInputElement;
-            const file = target.files?.[0];
-            if (
-                file &&
-                (file.type === "audio/midi" || file.type === "audio/mid")
-            ) {
-                store.mainEditor!.loadMidiFile(file);
-                fileInput.value!.value = "";
-            } else {
-                alert("Please select a valid MIDI file.");
-            }
-        };
+import IntroComp from "@/components/IntroTab.vue";
+import TabSwitch from "@/components/TabSwitch.vue";
+import FileTab from "@/components/FileTab.vue";
+const store = useStore();
+const mainEditor = ref<InstanceType<typeof MainEditor> | null>(null);
+const suggestionPanel = ref<InstanceType<typeof SuggestionPanel> | null>(null);
 
+const loadMidi = (event: Event) => {
+    const target = event.target as HTMLInputElement;
+    const file = target.files?.[0];
+    if (
+        file &&
+        (file.type === "audio/midi" || file.type === "audio/mid")
+    ) {
+        store.mainEditor!.loadMidiFile(file);
+    } else {
+        alert("Please select a valid MIDI file.");
+    }
+};
 
-        return {
-            mainEditor,
-            handleFileInput,
-            suggestionPanel,
-            fileInput,
-        };
-    },
-    mounted() {
-        const store = useStore();
-        store.mainEditor = this.mainEditor;
-        store.mainPianoroll = this.mainEditor!.pianoroll! 
-        store.suggestionPanel = this.suggestionPanel;
-    },
+onMounted(() => {
+    store.mainEditor = mainEditor.value;
+    store.mainPianoroll = mainEditor.value!.pianoroll!;
+    store.suggestionPanel = suggestionPanel.value;
 });
+
+const saveMidi = () => {
+    store.mainPianoroll!.saveMidi();
+};
+
+const useTemplate = (template: any) => {
+    store.mainEditor!.setAttributes(template.attributes);
+};
 </script>
 
 <style scoped>
@@ -114,18 +81,18 @@ export default defineComponent({
     flex-direction: column;
     align-items: stretch;
     gap: 10px;
-    height: 100vh;
+    height: calc(100vh - 30px);
     max-height: 100vh;
 }
 
 .panels {
     display: flex;
     flex-direction: row;
-    gap: 50px;
+    gap: 30px;
     flex-grow: 1;
-    margin-bottom: 20px;
     justify-content: space-between;
     padding: 20px 20px;
+    padding-bottom: 0;
 }
 
 .left-panel {
@@ -173,6 +140,7 @@ h2 {
 .left-sidebar {
     position: relative;
     color: rgb(216, 216, 216);
+    max-width: 20%;
 }
 
 .left-sidebar :is(h1, h2, h3) {
@@ -183,18 +151,11 @@ h2 {
     font-size: 25px;
 }
 
-a {
-    color: rgb(35, 171, 255);
-}
 
-a:visited {
-    color: rgb(47, 136, 225);
-}
 
-.left-sidebar-intro {
-    padding: 10px;
-    overflow-y: auto;
+.left-sidebar-switch {
     height: calc(100% - 50px);
+    width: 100%;
 }
 
 .github-btn {

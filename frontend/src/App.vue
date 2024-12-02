@@ -2,6 +2,11 @@
   <div id="app">
     
     <router-view></router-view>
+
+    <footer>
+    
+      <i>made by <a href="https://eri24816.tw" target="_blank">eri24816</a></i>  •  <a href="https://github.com/eri24816/midi-gen" target="_blank">github</a>
+    </footer>
   </div>
 </template>
 
@@ -56,4 +61,17 @@ button:hover{
 button:active{
     background-color: #1e262d;
 }
+footer{
+  text-align: center;
+  padding: 5px;
+}
+
+a {
+    color: rgb(35, 171, 255);
+}
+
+a:visited {
+    color: rgb(47, 136, 225);
+}
+
 </style>

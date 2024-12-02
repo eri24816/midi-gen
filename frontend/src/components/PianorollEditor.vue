@@ -67,8 +67,8 @@ export default {
     ) {
         const pianorollCanvas = ref<HTMLCanvasElement | null>(null);
         let ctx: CanvasRenderingContext2D | null = null;
-        let scaleX = 50;
-        let shiftX = 1;
+        let scaleX = 30;
+        let shiftX = 3.3;
         let gap = 0.6;
         let pianoroll = ref<Pianoroll>(new Pianoroll(props.midiData));
         let cursorPosition = -0.125;

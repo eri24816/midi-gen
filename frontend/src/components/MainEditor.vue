@@ -208,10 +208,19 @@ const onEdit = (addedNotes: Note[], removedNotes: Note[]) => {
     }
 };
 
+const setAttributes = (attributes: Record<string, any[]>) => {
+    for (const [name, value] of Object.entries(attributes)) {
+        for (let i = 0; i < value.length; i++) {
+            attrUserValues.value[i][name] = value[i];
+            attrIsDetermined.value[i][name] = true;
+        }
+    }
+};
+
 defineExpose({
     loadMidiFile,
     pianoroll,
-    barWidth,
+    setAttributes
 });
 
 </script>
