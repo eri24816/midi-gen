@@ -50,12 +50,14 @@ export default defineComponent({
 
 .tab-buttons button {
     padding: 8px 16px;
-    border-radius: 4px;
     cursor: pointer;
+    border-radius: 4px 4px 0 0;
+    background-color: #65656582;
 }
 
 .tab-buttons button.active {
-    background-color: #404040;
+    background-color: #3b6e3582;
+    border-bottom: 1px solid #0cdd10b2;
 }
 
 .tab-content {
